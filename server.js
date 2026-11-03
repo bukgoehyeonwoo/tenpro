@@ -26,7 +26,7 @@ io.on('connection', (s) => {
     const used = new Set(Object.values(R.players).map((p) => p.color));
     let color = 0;
     while (used.has(color)) color++;
-    const p = { id: s.id, name, color, x: (Math.random() - 0.5) * 6, z: 3 + Math.random() * 2, ry: 0 };
+    const p = { id: s.id, name, color, x: (Math.random() - 0.5) * 3, z: -4.8 + Math.random() * 1.6, ry: 0 };
     R.players[s.id] = p;
     room = r;
     s.join(r);
@@ -38,8 +38,8 @@ io.on('connection', (s) => {
     const R = cur();
     if (!R) return;
     const p = R.players[s.id];
-    p.x = num(m.x, 9.5);
-    p.z = num(m.z, 7.5);
+    p.x = num(m.x, 4);
+    p.z = num(m.z, 5.5);
     p.ry = num(m.ry, 7);
     s.to(room).emit('move', { id: s.id, x: p.x, z: p.z, ry: p.ry });
   });
@@ -52,7 +52,7 @@ io.on('connection', (s) => {
 
   s.on('emote', (type) => {
     if (!cur()) return;
-    io.to(room).emit('emote', { id: s.id, type: type === 'clap' ? 'clap' : 'tmb' });
+    io.to(room).emit('emote', { id: s.id, type: ['clap', 'tmb', 'smoke', 'pour', 'drink'].includes(type) ? type : 'tmb' });
   });
 
   s.on('mic', () => {
