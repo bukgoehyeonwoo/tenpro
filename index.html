@@ -2,49 +2,148 @@
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>노래방 만남의 광장</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#0b0618;font-family:system-ui,sans-serif;color:#fff}
-canvas{display:block}
-#join{position:fixed;inset:0;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;background:#0b0618ee;z-index:5}
-#join h1{margin:0 0 8px;font-size:28px;text-shadow:0 0 14px #f0f}
-input,button{font:inherit;padding:10px 14px;border-radius:10px;border:0}
-input{background:#fff2;color:#fff;width:220px}
-button{background:#e040fb;color:#fff;cursor:pointer}
-#err{color:#ff8a8a;min-height:1em}
-#gsel{display:flex;gap:8px}
-.gb{background:#fff2;border:2px solid transparent;width:107px}
-.gb.on{background:#e040fb;border-color:#fff}
-#top{position:fixed;top:8px;left:10px;font-size:13px;text-shadow:0 1px 3px #000;display:none}
-#ui{position:fixed;left:0;right:0;bottom:0;padding:10px;display:none;flex-direction:column;gap:8px;pointer-events:none;z-index:4}
-#log{font-size:14px;text-shadow:0 1px 3px #000}
-#bar,#chat{display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap}
-#chat input{flex:1;min-width:0}
-#helpf{background:#ff4081}#helpm{background:#3f51b5}#bye{background:#78909c}
-#slap,#burn{background:#d32f2f}#hug{background:#43a047}#sit{background:#8d6e63}#water{background:#0288d1}#dance{background:#ff9100}
-#joy{position:fixed;left:16px;bottom:230px;width:120px;height:120px;border-radius:50%;background:#ffffff1f;border:2px solid #ffffff44;display:none;touch-action:none;z-index:4}
-#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#e040fb99;pointer-events:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b0618;font-family:'Noto Sans KR',system-ui,sans-serif;color:#fff;}
+canvas{display:block;}
+
+/* 아케이드 공통 테마 (굵은 테두리, 그림자) */
+.arcade-border { border: 4px solid #000; box-shadow: 3px 3px 0 #000; border-radius: 16px; }
+
+/* 입장 화면 (테크노 드라이브 스타일 배경) */
+#join {
+  position:fixed;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;
+  background-color: #4fc3f7;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.92' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M60 25.98L30 8.66L0 25.98L0 60.62L30 77.94L60 60.62Z' fill='none' stroke='%23ffffff' stroke-width='2' stroke-opacity='0.4'/%3E%3C/svg%3E");
+  background-size: 60px 103.92px;
+  z-index:5; color:#000;
+}
+#join h1 {
+  background: #fff; padding: 15px 30px; font-family: 'Black Han Sans', sans-serif;
+  font-size: 36px; text-shadow: none; margin: 0 0 10px; text-align: center;
+  border: 5px solid #000; box-shadow: 5px 5px 0 #000; border-radius: 20px;
+}
+input, button { font-family: 'Noto Sans KR', inherit; padding: 12px 16px; font-size: 16px; outline: none; }
+#join input { background: #fff; color: #000; width: 240px; font-weight: 900; }
+#go { background: #ffeb3b; color: #000; cursor: pointer; font-weight: 900; width: 278px; font-size: 18px; }
+#go:active { transform: translate(3px, 3px); box-shadow: 0 0 0 #000; }
+#err { color: #d32f2f; min-height: 1em; font-weight: 900; background: #fff; padding: 0 10px; border-radius: 8px; }
+#gsel { display: flex; gap: 10px; width: 278px; }
+.gb { background: #eee; color: #000; width: 100%; font-weight: 900; cursor: pointer; border: 4px solid #000; box-shadow: 3px 3px 0 #000; border-radius: 12px;}
+.gb.on { background: #1de9b6; box-shadow: inset 0 0 0 3px #fff, 3px 3px 0 #000; }
+
+#top { position:fixed; top:12px; left:12px; background:#fff; color:#000; padding:6px 12px; font-size:13px; display:none; z-index:4; font-weight:900; }
+#log { position:fixed; top:60px; left:12px; font-size:14px; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; font-weight:900; color:#fff; pointer-events:none; z-index:4; }
+
+/* 메인 UI (정리된 아케이드 탭 패널) */
+#ui { position:fixed; left:0; right:0; bottom:0; padding:15px; display:none; flex-direction:column; gap:10px; z-index:4; pointer-events:none; }
+#arcade-dashboard { pointer-events:auto; display:flex; flex-direction:column; gap:10px; max-width: 600px; margin: 0 auto; width: 100%; }
+
+/* 상단: 액션 버튼 그룹 (스크린샷의 알약 모양 우측 패널 느낌) */
+.act-grp {
+  display:none; gap:8px; flex-wrap:wrap; justify-content:center;
+  background: rgba(238, 238, 238, 0.95); padding: 12px;
+}
+.act-grp.active { display:flex; }
+.abtn {
+  background: #fff; border: 3px solid #000; border-radius: 20px;
+  padding: 8px 14px; font-weight: 900; color: #000; cursor: pointer;
+  box-shadow: 2px 2px 0 #000; white-space: nowrap; font-size: 14px; transition: 0.1s;
+}
+.abtn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 #000; }
+.abtn.highlight { background: #ffeb3b; }
+
+/* 하단: 카테고리 노드 (스크린샷의 좌측 세포망 디자인) */
+#cat-nodes { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cat-node {
+  width: 55px; height: 55px; border-radius: 50%;
+  background: #1de9b6; border: 4px solid #000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 900; color: #000; cursor: pointer;
+  position: relative; box-shadow: 0 3px 0 #000; line-height: 1.2;
+  transition: 0.1s;
+}
+.cat-node.on {
+  background: #b388ff; color: #fff;
+  box-shadow: 0 0 0 3px #ffeb3b, 0 0 0 7px #000; /* 보라 바탕 + 노란 링 + 검은 테두리 */
+  transform: scale(1.1); z-index: 2;
+}
+
+#chat { display:flex; gap:8px; width: 100%; }
+#chat input { flex:1; min-width:0; background:rgba(255,255,255,0.9); }
+#send { background:#ffeb3b; }
+
+#joy{position:fixed;left:16px;bottom:250px;width:120px;height:120px;border-radius:50%;background:#ffffff1f;border:2px solid #ffffff44;display:none;touch-action:none;z-index:4}
+#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#1de9b6;border:4px solid #000;pointer-events:none}
 #flash{position:fixed;inset:0;background:#d50000;opacity:0;pointer-events:none;z-index:3}
 #vig{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(ellipse at center,transparent 30%,#b71c1caa 100%)}
-@media(pointer:coarse){#bar button{padding:8px 10px;font-size:13px}#bar{gap:4px}}
 html,body{overscroll-behavior:none}
 </style></head><body>
-<div id="join"><h1>🎤 노래방 만남의 광장</h1>
-<input id="name" placeholder="닉네임" maxlength="10">
-<div id="gsel"><button class="gb on" id="gm">🧑 남자</button><button class="gb" id="gf">👩 여자</button></div>
-<input id="room" placeholder="방 코드 (친구랑 똑같이!)" maxlength="20">
-<button id="go">입장하기</button><div id="err"></div>
-<div style="font-size:12px;opacity:.7;text-align:center">PC: WASD 이동 · 마우스 드래그로 시점 회전 · 휠로 줌 · Enter로 채팅<br>모바일: 왼쪽 조이스틱 이동 · 화면 드래그로 시점 회전 · 방당 최대 6명</div></div>
-<div id="top"></div>
+
+<div id="join">
+  <h1>🎤 만남의 광장</h1>
+  <input id="name" class="arcade-border" placeholder="닉네임 (최대 10자)" maxlength="10">
+  <div id="gsel"><button class="gb on" id="gm">🧑 남자</button><button class="gb" id="gf">👩 여자</button></div>
+  <input id="room" class="arcade-border" placeholder="방 코드 (친구랑 똑같이!)" maxlength="20">
+  <button id="go" class="arcade-border">입 장 하 기</button>
+  <div id="err"></div>
+  <div style="font-size:13px; font-weight:900; text-align:center; background:rgba(255,255,255,0.8); padding:10px; border-radius:10px; border:3px solid #000;">
+    PC: WASD 이동 · 마우스 시점 · 휠 줌<br>모바일: 조이스틱 이동 · 드래그 시점
+  </div>
+</div>
+
+<div id="top" class="arcade-border"></div>
+<div id="log"></div>
 <div id="vig"></div><div id="flash"></div>
 <div id="joy"><div id="knob"></div></div>
-<div id="ui"><div id="log"></div>
-<div id="bar">
-<button id="mic">🎤 마이크</button><button id="clap">👏 박수</button><button id="tmb">🪘 탬버린</button><button id="dance">💃 댄스</button><button id="sit">🪑 앉기</button>
-<button id="smk">🚬 담배</button><button id="pour">🥃 술따르기</button><button id="drk">🍻 마시기</button><button id="water">💧 물마시기</button>
-<button id="hug">🫂 어깨동무</button><button id="slap">🖐️ 싸대기</button><button id="burn">🔥 담배빵</button>
-<button id="helpf">🧚 여자 도우미</button><button id="helpm">🕴️ 남자 도우미</button><button id="bye">🚪 도우미 퇴장</button>
+
+<div id="ui">
+  <div id="arcade-dashboard">
+    <!-- 상단: 선택된 카테고리의 버튼들 -->
+    <div id="sub-actions">
+      <div id="grp-basic" class="act-grp arcade-border active">
+        <button id="mic" class="abtn highlight">🎤 마이크</button>
+        <button id="sit" class="abtn highlight">🪑 앉기</button>
+        <button id="clap" class="abtn">👏 박수</button>
+        <button id="tmb" class="abtn">🪘 탬버린</button>
+      </div>
+      <div id="grp-motion" class="act-grp arcade-border">
+        <button id="dance" class="abtn">💃 댄스</button>
+        <button id="smk" class="abtn">🚬 담배</button>
+      </div>
+      <div id="grp-drink" class="act-grp arcade-border">
+        <button id="pour" class="abtn">🥃 술따르기</button>
+        <button id="drk" class="abtn">🍻 마시기</button>
+        <button id="water" class="abtn">💧 물마시기</button>
+      </div>
+      <div id="grp-touch" class="act-grp arcade-border">
+        <button id="hug" class="abtn">🫂 어깨동무</button>
+        <button id="slap" class="abtn" style="color:#d32f2f">🖐️ 싸대기</button>
+        <button id="burn" class="abtn" style="color:#d32f2f">🔥 담배빵</button>
+      </div>
+      <div id="grp-helper" class="act-grp arcade-border">
+        <button id="helpf" class="abtn" style="background:#f48fb1; border-color:#880e4f">🧚 여도우미</button>
+        <button id="helpm" class="abtn" style="background:#90caf9; border-color:#0d47a1">🕴️ 남도우미</button>
+        <button id="bye" class="abtn" style="background:#b0bec5; border-color:#263238">🚪 퇴장</button>
+      </div>
+    </div>
+
+    <!-- 하단: 둥근 노드 탭 (테크노 드라이브 스타일) -->
+    <div id="cat-nodes">
+      <div class="cat-node on" data-target="grp-basic">🎤<br>기본</div>
+      <div class="cat-node" data-target="grp-motion">💃<br>모션</div>
+      <div class="cat-node" data-target="grp-drink">🍻<br>음주</div>
+      <div class="cat-node" data-target="grp-touch">👊<br>터치</div>
+      <div class="cat-node" data-target="grp-helper">🧚<br>도우미</div>
+    </div>
+
+    <div id="chat">
+      <input id="msg" class="arcade-border" placeholder="채팅을 입력하세요..." maxlength="120">
+      <button id="send" class="abtn">전송</button>
+    </div>
+  </div>
 </div>
-<div id="chat"><input id="msg" placeholder="Enter 눌러서 채팅..." maxlength="120"><button id="send">전송</button></div></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
@@ -55,6 +154,16 @@ html,body{overscroll-behavior:none}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
+// UI 탭 전환 스크립트 추가
+document.querySelectorAll('.cat-node').forEach(node => {
+  node.onclick = () => {
+    document.querySelectorAll('.cat-node').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.act-grp').forEach(x => x.classList.remove('active'));
+    node.classList.add('on');
+    document.getElementById(node.dataset.target).classList.add('active');
+  };
+});
+
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(a,b)=>a+Math.random()*(b-a);
 const COLORS=[0xff5252,0x40c4ff,0x69f0ae,0xffd740,0xe040fb,0xff9100];
 const HAIRS=[0x3e2316,0x151515,0x5d4037,0x8d6e63,0x212121,0x4e342e];
@@ -115,12 +224,12 @@ function showScreen(l1,l2,hue,secs){
   if(secs)screenTimer=setTimeout(()=>{screenTimer=null;setMic(micId)},secs*1000);
 }
 function setMic(id){
-  micId=id;$('mic').textContent=id===me?'🎤 마이크 내려놓기':'🎤 마이크';
+  micId=id;$('mic').innerHTML=id===me?'🎤 마이크 내려놓기':'🎤 마이크';
   if(id&&players[id])showScreen(players[id].name+' 열창중','♪ ♫ ♪',300,0);
   else if(!screenTimer)showScreen('🎤 노래방','마이크를 잡아봐!',280,0);
 }
 function addLog(n,t){const d=document.createElement('div');d.textContent=n+': '+t;const l=$('log');l.appendChild(d);while(l.children.length>6)l.firstChild.remove()}
-function updateTop(){const L=players[me];$('top').textContent='방 코드: '+roomName+' · '+Object.keys(players).length+'/6명'+(L&&L.drunk>0?' · 🍺 취기 '+L.drunk+'/8':'')+' (주소창 링크를 친구에게 공유!)'}
+function updateTop(){const L=players[me];$('top').textContent='방 코드: '+roomName+' · '+Object.keys(players).length+'/6명'+(L&&L.drunk>0?' · 🍺 취기 '+L.drunk+'/8':'')}
 function bubble(p,text,secs){if(p.bub)p.g.remove(p.bub);p.bub=label(text,'#000a');p.bub.position.y=2.6;p.g.add(p.bub);p.bt=secs}
 
 const SKIN=0xf1c9a5,RED=new THREE.Color(0xe53935);
@@ -185,10 +294,10 @@ function add(p){
   if(p.seat!=null&&SEATS[p.seat])sitDown(o,p.seat);
   updateTop();
 }
-function sitDown(p,i){const s=SEATS[i];p.seat=i;p.g.position.set(s.x,0,s.z);p.g.rotation.y=s.ry;p.tx=s.x;p.tz=s.z;p.tr=s.ry;if(p.id===me)$('sit').textContent='🧍 일어나기'}
+function sitDown(p,i){const s=SEATS[i];p.seat=i;p.g.position.set(s.x,0,s.z);p.g.rotation.y=s.ry;p.tx=s.x;p.tz=s.z;p.tr=s.ry;if(p.id===me)$('sit').innerHTML='🧍 일어나기'}
 function standUp(p,send){
   const s=SEATS[p.seat];p.seat=null;p.g.position.set(s.sx,0,s.sz);p.tx=s.sx;p.tz=s.sz;
-  if(p.id===me){$('sit').textContent='🪑 앉기';dirty=1}
+  if(p.id===me){$('sit').innerHTML='🪑 앉기';dirty=1}
   if(send)socket.emit('sit',{seat:null,x:s.sx,z:s.sz,ry:p.g.rotation.y});
 }
 
