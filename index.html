@@ -46,15 +46,41 @@ html,body{overscroll-behavior:none}
 </div>
 <div id="chat"><input id="msg" placeholder="Enter 눌러서 채팅..." maxlength="120"><button id="send">전송</button></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(a,b)=>a+Math.random()*(b-a);
 const COLORS=[0xff5252,0x40c4ff,0x69f0ae,0xffd740,0xe040fb,0xff9100];
 const HAIRS=[0x3e2316,0x151515,0x5d4037,0x8d6e63,0x212121,0x4e342e];
 const socket=io();
-let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0;
+let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0,composer;
 const sc=document.createElement('canvas');sc.width=512;sc.height=256;
 const sx=sc.getContext('2d'),stex=new THREE.CanvasTexture(sc);
+
+const gltfLoader = new THREE.GLTFLoader();
+function loadModel(url, x, y, z, scale = 1, rotY = 0) {
+  gltfLoader.load(url, (gltf) => {
+    const model = gltf.scene;
+    model.position.set(x, y, z);
+    model.scale.set(scale, scale, scale);
+    model.rotation.y = rotY;
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    scene.add(model);
+  }, undefined, (error) => {
+    console.error('모델 로드 에러:', error);
+  });
+}
 
 // 앉을 수 있는 자리: 의자 4개 + 소파 8자리
 const SEATS=[];
@@ -99,10 +125,10 @@ function bubble(p,text,secs){if(p.bub)p.g.remove(p.bub);p.bub=label(text,'#000a'
 
 const SKIN=0xf1c9a5,RED=new THREE.Color(0xe53935);
 const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,flatShading:true},o));
-const bx=(w,h,d,c,x,y,z,o)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c,o));m.position.set(x,y,z);return m};
-const cy=(r1,r2,h,c,x,y,z,o,seg)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||8),mat(c,o));m.position.set(x,y,z);return m};
-const sp=(r,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),mat(c));m.position.set(x,y,z);return m};
-const cap=(r,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6,0,Math.PI*2,0,Math.PI/2),mat(c));m.position.set(x,y,z);return m};
+const bx=(w,h,d,c,x,y,z,o)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c,o));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m};
+const cy=(r1,r2,h,c,x,y,z,o,seg)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||8),mat(c,o));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m};
+const sp=(r,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),mat(c));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m};
+const cap=(r,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6,0,Math.PI*2,0,Math.PI/2),mat(c));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return m};
 function limb(x,y,mesh,off){const g=new THREE.Group();g.position.set(x,y,0);mesh.position.set(0,off,0);g.add(mesh);return g}
 
 // 캐릭터 공통 제작: o.f=여자 / 남자는 사무직(셔츠+넥타이) 또는 정장(도우미)
@@ -325,22 +351,39 @@ function placeDot(d,t){
 }
 function build(){
   renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));document.body.prepend(renderer.domElement);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  
+  // 1. 렌더러 그림자 활성화
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  
+  document.body.prepend(renderer.domElement);
   scene=new THREE.Scene();scene.background=new THREE.Color(0x0b0618);
   camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,40);
-  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+  addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+    if (composer) composer.setSize(innerWidth, innerHeight);
+  });
   scene.add(new THREE.AmbientLight(0x9a8fd0,.95));
   const A=m=>(scene.add(m),m),box=(...a)=>A(bx(...a));
-  A(new THREE.Mesh(new THREE.BoxGeometry(8,4.2,11),mat(0x2e2e3e,{side:THREE.BackSide}))).position.y=2.1;
+  
+  // 방 기본 구조
+  const roomBox = new THREE.Mesh(new THREE.BoxGeometry(8,4.2,11),mat(0x2e2e3e,{side:THREE.BackSide}));
+  roomBox.receiveShadow = true;
+  A(roomBox).position.y=2.1;
   box(8,.1,11,0x241c30,0,0,0);
   [-1.2,1.2].forEach(x=>box(.15,.05,9,0xffe082,x,4.15,0,{emissive:0xffe082}));
+  
   // 퀼팅 가죽 소파 (ㄷ자)
   const qc=document.createElement('canvas');qc.width=qc.height=64;const q=qc.getContext('2d');
   q.fillStyle='#1d1d24';q.fillRect(0,0,64,64);q.strokeStyle='#06060a';q.lineWidth=4;q.beginPath();q.moveTo(0,32);q.lineTo(32,0);q.lineTo(64,32);q.lineTo(32,64);q.closePath();q.stroke();
   const qt=new THREE.CanvasTexture(qc);qt.wrapS=qt.wrapT=THREE.RepeatWrapping;qt.repeat.set(6,2);const qm=mat(0xffffff,{map:qt});
-  const sofa=(w,h,d,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),qm);m.position.set(x,y,z);return A(m)};
+  const sofa=(w,h,d,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),qm);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;return A(m)};
   [-1,1].forEach(s=>{sofa(1,.5,8.3,3.2*s,.25,1.35);sofa(.3,1.1,8.3,3.85*s,.65,1.35)});
   sofa(5.4,.5,1,0,.25,5);sofa(5.4,1.1,.3,0,.65,5.35);
+  
   // 의자 4개 (무대 앞)
   SEATS.slice(0,4).forEach(s=>{
     const c=new THREE.Group();
@@ -348,6 +391,7 @@ function build(){
     [[-.19,-.19],[.19,-.19],[-.19,.19],[.19,.19]].forEach(([x,z])=>c.add(bx(.05,.4,.05,0x3e2723,x,.2,z)));
     c.position.set(s.x,0,s.z);A(c);
   });
+  
   // 테이블: 소주 + 양주(위스키) + 잔 + 과일안주
   box(1.7,.08,4.2,0x5d4037,0,.6,.7);box(1.3,.56,3.8,0x2b1b17,0,.28,.7);
   [-1,1].forEach(sd=>{for(let i=0;i<6;i++)A(cy(.045,.045,.26,0x2e7d32,.7*sd,.77,-1+i*.62,{},6))});
@@ -357,6 +401,7 @@ function build(){
     g.position.set(x,.64,z);A(g)});
   [[-.35,-.1],[.35,-.1],[-.35,.9],[.35,.9],[-.35,1.9],[.35,1.9]].forEach(([x,z])=>{
     A(cy(.04,.035,.08,0xb3e5fc,x,.68,z,{transparent:true,opacity:.6}));A(cy(.034,.034,.02,0xff9800,x,.68,z,{emissive:0x553300}))});
+  
   const fruit=(x,z,r)=>{
     A(cy(r,r*.9,.04,0xf5f5f5,x,.66,z,{},12));
     const cols=[0xef5350,0xc5e1a5,0xffa726,0xffee58];
@@ -366,6 +411,7 @@ function build(){
     for(let i=0;i<7;i++)A(sp(.04,0x7b1fa2,x+rnd(-.08,.08),.72+(i>3?.05:0),z+rnd(-.08,.08)));
   };
   fruit(0,2.4,.4);fruit(0,-1.15,.25);
+  
   // 마이크 무대, TV, 스피커, 액자
   A(cy(.9,.9,.16,0x6a1b9a,0,.08,-4.1,{emissive:0x2a0a4a},10));box(.04,1.2,.04,0xcccccc,0,.76,-4.1);A(sp(.07,0x222222,0,1.4,-4.1));
   box(3.8,2,.1,0x0a0a0a,0,2,-5.45);
@@ -375,16 +421,30 @@ function build(){
   plaque(5.8,1.8,skyline,-3.97,2.5,1,Math.PI/2);
   plaque(1.5,1,menu('오늘의 안주','골뱅이무침'),3.97,2.2,-1.2,-Math.PI/2);
   plaque(1.5,1,menu('서비스 30분!','소주 4,000원'),3.97,2.2,2.2,-Math.PI/2);
-  // 🚪 도우미 출입문 (TV 벽 왼쪽 구석). 문이 열리면 어두운 복도가 보임
+  
+  // 🚪 도우미 출입문
   box(1,2.1,.02,0x3b2a63,DOOR_X,1.05,-5.48,{emissive:0x1a1030});
   box(.1,2.2,.12,0x3e2723,DOOR_X-.55,1.1,-5.44);box(.1,2.2,.12,0x3e2723,DOOR_X+.55,1.1,-5.44);box(1.2,.1,.12,0x3e2723,DOOR_X,2.15,-5.44);
   door=new THREE.Group();door.position.set(DOOR_X-.5,0,-5.42);scene.add(door);
   door.add(bx(1,2.1,.06,0x6d4c41,.5,1.05,0),bx(.7,.8,.02,0x5d4037,.5,1.5,.04),bx(.7,.7,.02,0x5d4037,.5,.6,.04),sp(.04,0xffd740,.85,1.0,.06));
   plaque(1.1,.28,(c,w,h)=>{c.fillStyle='#1b5e20';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='bold '+h*.6+'px sans-serif';c.textAlign='center';c.fillText('🚪 입구',w/2,h*.72)},DOOR_X,2.45,-5.44,0);
+  
   // 조명: 미러볼, 회전 조명, 벽에 번지는 디스코 점, 초록 레이저
   ball=A(new THREE.Mesh(new THREE.IcosahedronGeometry(.45,1),mat(0xdddddd,{metalness:.9,roughness:.2})));ball.position.set(0,3.5,-3);
-  [0xff00ff,0x00e5ff,0xffee00].forEach(c=>{const l=new THREE.PointLight(c,1.1,9);scene.add(l);lights.push(l)});
-  spot=new THREE.SpotLight(0xffffff,0,12,.4,.5);spot.position.set(0,3.9,-4.1);scene.add(spot,spot.target);
+  [0xff00ff,0x00e5ff,0xffee00].forEach(c=>{
+    const l=new THREE.PointLight(c,1.1,9);
+    l.castShadow = true;
+    scene.add(l);lights.push(l)
+  });
+  
+  // 2. 스팟라이트 그림자 활성화
+  spot=new THREE.SpotLight(0xffffff,0,12,.4,.5);
+  spot.position.set(0,3.9,-4.1);
+  spot.castShadow = true;
+  spot.shadow.mapSize.width = 1024;
+  spot.shadow.mapSize.height = 1024;
+  scene.add(spot,spot.target);
+  
   laser=A(new THREE.Mesh(new THREE.TorusGeometry(.8,.04,6,20),new THREE.MeshBasicMaterial({color:0x00ff66,wireframe:true})));
   laser.position.set(3.9,2.5,-3.3);laser.rotation.y=-Math.PI/2;
   const dg=new THREE.CircleGeometry(1,10),rot=[Math.PI/2,-Math.PI/2,0,Math.PI];
@@ -393,6 +453,15 @@ function build(){
     m.scale.set(s,s,1);if(w<4)m.rotation.y=rot[w];else m.rotation.x=-Math.PI/2;scene.add(m);
     dots.push({m,w,u:rnd(-4,4),v:w===4?rnd(-5,5):rnd(.5,3.6),s:rnd(.3,.9),p:rnd(0,6.3)});
   }
+  
+  // 3. EffectComposer 세팅 (Bloom 패스 추가)
+  const renderScene = new THREE.RenderPass(scene, camera);
+  const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.2, 0.5, 0.4);
+  bloomPass.strength = 0.8; // 네온, 화면 빛 번짐 강도 조절
+  
+  composer = new THREE.EffectComposer(renderer);
+  composer.addPass(renderScene);
+  composer.addPass(bloomPass);
 }
 
 let lastFilter='';
@@ -529,6 +598,9 @@ function tick(){
     u.m.position.x+=u.vx*dt;u.m.position.y=Math.max(.02,u.m.position.y+u.vy*dt);u.m.position.z+=u.vz*dt;
     u.m.material.opacity=Math.max(0,1-u.t/u.life);
     if(u.t>u.life){scene.remove(u.m);u.m.material.dispose();parts.splice(i,1)}}
-  renderer.render(scene,camera);
+  
+  // 4. 기존 renderer 대신 composer로 렌더링
+  if(composer) composer.render();
+  else renderer.render(scene,camera);
 }
 </script></body></html>
