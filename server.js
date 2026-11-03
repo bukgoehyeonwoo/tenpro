@@ -50,6 +50,7 @@ const LINES = {
   ],
 };
 
+app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const num = (v, lim) => Math.max(-lim, Math.min(lim, Number(v) || 0));

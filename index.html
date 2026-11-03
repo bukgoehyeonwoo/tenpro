@@ -2,10 +2,10 @@
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>노래방 만남의 광장</title>
-<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <style>
 /* 1. 깔끔한 UI/UX로 디자인 전면 개편 */
-html,body{margin:0;height:100%;overflow:hidden;background:#0b0618;font-family:'Pretendard',system-ui,sans-serif;color:#333;}
+@font-face{font-family:'Pretendard Variable';font-weight:45 920;font-style:normal;font-display:swap;src:url('/fonts/PretendardVariable.woff2') format('woff2-variations'),url('/fonts/PretendardVariable.woff2') format('woff2')}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b0618;font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;color:#333;}
 canvas{display:block;}
 
 .clean-box { 
@@ -23,11 +23,11 @@ canvas{display:block;}
   z-index:5;
 }
 #join h1 {
-  background: rgba(255,255,255,0.9); padding: 15px 35px; font-family: 'Black Han Sans', sans-serif;
+  background: rgba(255,255,255,0.9); padding: 15px 35px; font-family: 'Pretendard Variable',Pretendard,sans-serif; font-weight: 900;
   font-size: 38px; margin: 0 0 10px; text-align: center; color: #1a1a1a;
   border-radius: 24px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
 }
-input, button { font-family: 'Pretendard', inherit; padding: 14px 18px; font-size: 16px; outline: none; border:none; transition: 0.2s ease; }
+input, button { font-family: 'Pretendard Variable',Pretendard,sans-serif; padding: 14px 18px; font-size: 16px; outline: none; border:none; transition: 0.2s ease; }
 #join input { width: 240px; font-weight: 600; color: #333; }
 #join input::placeholder { color: #aaa; }
 #go { background: #3b82f6; color: #fff; cursor: pointer; font-weight: 800; width: 278px; font-size: 18px; letter-spacing: 1px; }
@@ -81,6 +81,23 @@ input, button { font-family: 'Pretendard', inherit; padding: 14px 18px; font-siz
 #flash{position:fixed;inset:0;background:#d50000;opacity:0;pointer-events:none;z-index:3}
 #vig{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(ellipse at center,transparent 30%,#b71c1caa 100%)}
 html,body{overscroll-behavior:none}
+/* ===== 컴팩트 + 켜고 끄는(토글) UI ===== */
+#ui{padding:10px 70px 10px 10px;gap:8px}
+#ui>*{pointer-events:auto}
+#arcade-dashboard{max-width:560px;gap:6px}
+body:not(.menu-on) #arcade-dashboard{display:none}
+body:not(.chat-on) #chat{display:none}
+#chat{max-width:560px;width:100%;margin:0 auto}
+.act-grp{padding:8px 10px;gap:6px;background:rgba(255,255,255,.72)}
+.abtn{padding:8px 12px;font-size:13px}
+.cat-node{padding:6px 11px;font-size:12px}
+#cat-nodes{gap:6px;justify-content:flex-start;overflow-x:auto}
+#fab{position:fixed;right:10px;bottom:10px;display:flex;flex-direction:column;gap:8px;z-index:6}
+.fab{width:46px;height:46px;padding:0;border-radius:50%;font-size:21px;cursor:pointer;background:rgba(255,255,255,.88);box-shadow:0 4px 14px rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.6)}
+.fab.on{background:#3b82f6}
+#joy{bottom:24px}
+body.menu-on #joy{bottom:150px}
+@media(pointer:coarse){.act-grp{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start}.abtn,.cat-node{flex:0 0 auto}}
 </style></head><body>
 
 <div id="join">
@@ -91,7 +108,7 @@ html,body{overscroll-behavior:none}
   <button id="go" class="clean-box">입 장 하 기</button>
   <div id="err"></div>
   <div style="font-size:13px; font-weight:600; text-align:center; color:#555; background:rgba(255,255,255,0.6); padding:10px 15px; border-radius:12px;">
-    PC: WASD 이동 · 마우스 시점 · 휠 줌<br>모바일: 조이스틱 이동 · 드래그 시점
+    PC: WASD 이동 · 마우스 시점 · 휠 줌 · Q 메뉴 · Enter 채팅<br>모바일: 조이스틱 이동 · 드래그 시점 · 우측 하단 🎛️메뉴 / 💬채팅
   </div>
 </div>
 
@@ -138,10 +155,14 @@ html,body{overscroll-behavior:none}
       <div class="cat-node" data-target="grp-helper">🧚 도우미</div>
     </div>
 
-    <div id="chat">
-      <input id="msg" placeholder="채팅을 입력하세요..." maxlength="120">
-      <button id="send" class="abtn">전송</button>
-    </div>
+  </div>
+  <div id="chat">
+    <input id="msg" placeholder="채팅을 입력하세요... (Esc 닫기)" maxlength="120">
+    <button id="send" class="abtn">전송</button>
+  </div>
+  <div id="fab">
+    <button class="fab" id="fabChat" title="채팅 (Enter)">💬</button>
+    <button class="fab" id="fabMenu" title="행동 메뉴 (Q)">🎛️</button>
   </div>
 </div>
 
@@ -164,6 +185,9 @@ document.querySelectorAll('.cat-node').forEach(node => {
   };
 });
 
+const FONT="'Pretendard Variable',sans-serif";
+const fontReady=()=>Promise.race([document.fonts.load("800 40px 'Pretendard Variable'",'가나다ABC'),new Promise(r=>setTimeout(r,3000))]);
+fontReady();
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(a,b)=>a+Math.random()*(b-a);
 const COLORS=[0xff5252,0x40c4ff,0x69f0ae,0xffd740,0xe040fb,0xff9100];
 const HAIRS=[0x3e2316,0x151515,0x5d4037,0x8d6e63,0x212121,0x4e342e];
@@ -181,13 +205,13 @@ const DOOR_X=-3,DOOR_Z=-5.4;
 $('room').value=new URLSearchParams(location.search).get('room')||'';
 $('gm').onclick=()=>{gender='m';$('gm').classList.add('on');$('gf').classList.remove('on')};
 $('gf').onclick=()=>{gender='f';$('gf').classList.add('on');$('gm').classList.remove('on')};
-$('go').onclick=()=>{roomName=$('room').value.trim()||'노래방';socket.emit('join',{name:$('name').value.trim()||'익명',room:roomName,gender})};
+$('go').onclick=()=>{roomName=$('room').value.trim()||'노래방';const nm=$('name').value.trim()||'익명';fontReady().then(()=>socket.emit('join',{name:nm,room:roomName,gender}))};
 socket.on('full',()=>$('err').textContent='방이 꽉 찼어요! (최대 6명)');
 socket.on('notice',t=>addLog('📢',t));
 
 function label(text,bg){
   const c=document.createElement('canvas');c.width=512;c.height=96;
-  const x=c.getContext('2d');x.font='bold 40px sans-serif';
+  const x=c.getContext('2d');x.font='bold 40px '+FONT;
   const t=text.length>22?text.slice(0,22)+'…':text;
   if(bg){const w=Math.min(500,x.measureText(t).width+40);x.fillStyle=bg;x.beginPath();x.roundRect((512-w)/2,10,w,76,24);x.fill()}
   x.textAlign='center';x.textBaseline='middle';
@@ -198,8 +222,8 @@ function label(text,bg){
 }
 function showScreen(l1,l2,hue,secs){
   sx.fillStyle=`hsl(${hue},60%,16%)`;sx.fillRect(0,0,512,256);
-  sx.fillStyle='#fff';sx.textAlign='center';sx.font='bold 40px sans-serif';sx.fillText(l1,256,105);
-  sx.font='bold 66px sans-serif';sx.fillText(l2,256,200);stex.needsUpdate=true;
+  sx.fillStyle='#fff';sx.textAlign='center';sx.font='bold 40px '+FONT;sx.fillText(l1,256,105);
+  sx.font='bold 66px '+FONT;sx.fillText(l2,256,200);stex.needsUpdate=true;
   clearTimeout(screenTimer);screenTimer=null;
   if(secs)screenTimer=setTimeout(()=>{screenTimer=null;setMic(micId)},secs*1000);
 }
@@ -243,10 +267,10 @@ function body(o){
       g.add(bx(.08,.42,.02,o.tie,0,.9,.16),bx(.03,.34,.02,0x1565c0,.12,.98,.16),bx(.12,.16,.02,0x90caf9,.12,.76,.16),bx(.34,.05,.02,0x222222,0,1.46,.19));
     }
   }
-  const mk=(...ms)=>{const h=new THREE.Group();ms.forEach(m=>{m.rotation.x=Math.PI/2;h.add(m)});h.position.set(0,-(al+.06),0);h.visible=false;return h};
+  const mk=(...ms)=>{const h=new THREE.Group(),inner=new THREE.Group();ms.forEach(m=>inner.add(m));inner.rotation.x=Math.PI/2;h.add(inner);h.position.set(0,-(al+.06),0);h.visible=false;return h};
   const glassM=(c,e)=>mk(cy(.045,.035,.09,0xb3e5fc,0,0,0,{transparent:true,opacity:.6}),cy(.034,.034,.05,c,0,0,0,{emissive:e}));
-  const cig=mk(bx(.025,.13,.025,0xffffff,0,0,0),bx(.027,.03,.027,0xff6d00,0,-.08,0,{emissive:0xff3d00}));
-  const bottle=mk(cy(.05,.05,.2,0x8d4a14,0,0,0,{emissive:0x2a1204}),cy(.025,.025,.1,0x8d4a14,0,.15,0,{emissive:0x2a1204}));
+  const cig=mk(bx(.025,.13,.025,0xffffff,0,0,0),bx(.027,.03,.027,0xff6d00,0,-.075,0,{emissive:0xff3d00}));cig.children[0].position.set(0,0,-.07);
+  const bottle=mk(cy(.05,.05,.2,0x8d4a14,0,0,0,{emissive:0x2a1204}),cy(.027,.05,.05,0x8d4a14,0,.125,0,{emissive:0x2a1204}),cy(.025,.025,.1,0x8d4a14,0,.2,0,{emissive:0x2a1204}),cy(.028,.028,.03,0x111111,0,.265,0));
   const glass=glassM(0xff9800,0x553300),glassL=glassM(0xff9800,0x553300),wglass=glassM(0x4fc3f7,0x0d3a52);
   const bcig=new THREE.Group();bcig.add(bx(.028,.14,.028,0xffffff,0,0,0),bx(.03,.035,.03,0xff6d00,0,-.085,0,{emissive:0xff3d00}));
   bcig.position.set(0,-(al+.1),0);bcig.visible=false;
@@ -304,7 +328,7 @@ socket.on('emote',m=>{
   const T=m.type;
   if(T==='stop'){p.at=0;p.bounce=0;return}
   if(T==='clap'||T==='tmb'){p.bounce=2;return}
-  const D={smoke:5,pour:3,drink:3,water:3,dance:8,hug:7,slap:.9,burn:1.6}[T];
+  const D={smoke:11,pour:4,drink:3,water:3,dance:8,hug:7,slap:.9,burn:1.6}[T];
   if(!D)return;
   p.act=T;p.at=D;p.pt=0;p.fx=0;p.tgt=m.target||null;
   if(m.target){
@@ -377,7 +401,14 @@ $('sit').onclick=()=>{
   if(L.at>0){L.at=0;socket.emit('emote',{type:'stop'})}
   sitDown(L,b);socket.emit('sit',{seat:b,x:SEATS[b].x,z:SEATS[b].z,ry:SEATS[b].ry});
 };
-function send(){const v=$('msg').value.trim();if(v)socket.emit('chat',v);$('msg').value='';$('msg').blur()}
+const B=document.body;
+function setCls(c,btn,on){B.classList.toggle(c,on);$(btn).classList.toggle('on',on)}
+function toggleMenu(){setCls('menu-on','fabMenu',!B.classList.contains('menu-on'))}
+function openChat(){setCls('chat-on','fabChat',true);$('msg').focus()}
+function closeChat(){setCls('chat-on','fabChat',false)}
+$('fabMenu').onclick=toggleMenu;
+$('fabChat').onclick=()=>B.classList.contains('chat-on')?closeChat():openChat();
+function send(){const v=$('msg').value.trim();if(v)socket.emit('chat',v);$('msg').value='';$('msg').blur();closeChat()}
 let pend=0;
 $('msg').addEventListener('compositionend',()=>{if(pend){pend=0;setTimeout(send,0)}});
 $('send').onclick=send;
@@ -385,10 +416,12 @@ const keyOf=e=>({arrowup:'w',arrowleft:'a',arrowdown:'s',arrowright:'d'}[e.key.t
 addEventListener('keydown',e=>{
   if(document.activeElement.tagName==='INPUT'){
     if(e.isComposing||e.keyCode===229){if(e.target.id==='msg'&&(e.key==='Enter'||e.code==='Enter'))pend=1;return}
+    if(e.key==='Escape'&&e.target.id==='msg'){$('msg').blur();closeChat();return}
     if(e.key==='Enter'){if(e.target.id==='msg')send();else if(!me)$('go').click()}
     return;
   }
-  if(e.key==='Enter'&&me){$('msg').focus();e.preventDefault();return}
+  if(e.key==='Enter'&&me){openChat();e.preventDefault();return}
+  if((e.key==='q'||e.key==='Q')&&me){toggleMenu();return}
   keys[keyOf(e)]=1;
 });
 addEventListener('keyup',e=>{delete keys[keyOf(e)]});
@@ -413,7 +446,7 @@ function look(){
 
 let dots=[],laser;
 const puffs=[],puffG=new THREE.SphereGeometry(.05,6,4),tmpV=new THREE.Vector3();
-function puff(v){if(puffs.length>60)return;const m=new THREE.Mesh(puffG,new THREE.MeshBasicMaterial({color:0xd0d0d0,transparent:true,opacity:.55,depthWrite:false}));m.position.copy(v);scene.add(m);puffs.push({m,t:0})}
+function puff(v,vx,vz){if(puffs.length>120)return;const m=new THREE.Mesh(puffG,new THREE.MeshBasicMaterial({color:0xd0d0d0,transparent:true,opacity:.55,depthWrite:false}));m.position.copy(v);scene.add(m);puffs.push({m,t:0,vx:vx||0,vz:vz||0})}
 const parts=[],pG=new THREE.SphereGeometry(.035,5,4);
 function burst(v,color,n,spd,grav,bx_,bz_){
   for(let i=0;i<n&&parts.length<160;i++){
@@ -452,7 +485,7 @@ const skyline=(x,w,h)=>{const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0
   for(let i=0;i<24;i++){const bw=rnd(20,46),bh=rnd(h*.3,h*.85),bl=i*22-4;x.fillStyle='#14152e';x.fillRect(bl,h-bh,bw,bh);x.fillStyle='#ffe082';
     for(let k=0;k<16;k++)if(Math.random()<.5)x.fillRect(bl+rnd(3,bw-6),h-bh+rnd(4,bh-6),3,4)}};
 const menu=(t1,t2)=>(x,w,h)=>{x.fillStyle='#ffecb3';x.fillRect(0,0,w,h);x.strokeStyle='#e65100';x.lineWidth=12;x.strokeRect(6,6,w-12,h-12);
-  x.fillStyle='#bf360c';x.textAlign='center';x.font='bold 64px sans-serif';x.fillText(t1,w/2,h*.42);x.font='bold 46px sans-serif';x.fillText(t2,w/2,h*.74)};
+  x.fillStyle='#bf360c';x.textAlign='center';x.font='bold 64px '+FONT;x.fillText(t1,w/2,h*.42);x.font='bold 46px '+FONT;x.fillText(t2,w/2,h*.74)};
 function placeDot(d,t){
   const u=d.u+Math.sin(t*d.s+d.p)*.7,v=d.v+Math.cos(t*d.s*.7+d.p)*.3,m=d.m;
   if(d.w===0)m.position.set(-3.97,v,u);else if(d.w===1)m.position.set(3.97,v,u);
@@ -518,7 +551,7 @@ function build(){
   box(3.8,2,.1,0x0a0a0a,0,2,-5.45);
   A(new THREE.Mesh(new THREE.PlaneGeometry(3.6,1.8),new THREE.MeshBasicMaterial({map:stex}))).position.set(0,2,-5.39);
   [-3.1,3.1].forEach(x=>{box(.7,1,.5,0x0b0b0b,x,3.2,-5.2);
-    plaque(.5,.16,(c,w,h)=>{c.fillStyle='#111';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='bold '+h*.8+'px sans-serif';c.textAlign='center';c.fillText('BIK',w/2,h*.8)},x,3.5,-4.94,0)});
+    plaque(.5,.16,(c,w,h)=>{c.fillStyle='#111';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='bold '+h*.8+'px '+FONT;c.textAlign='center';c.fillText('BIK',w/2,h*.8)},x,3.5,-4.94,0)});
   plaque(5.8,1.8,skyline,-3.97,2.5,1,Math.PI/2);
   plaque(1.5,1,menu('오늘의 안주','골뱅이무침'),3.97,2.2,-1.2,-Math.PI/2);
   plaque(1.5,1,menu('서비스 30분!','소주 4,000원'),3.97,2.2,2.2,-Math.PI/2);
@@ -527,7 +560,7 @@ function build(){
   box(.1,2.2,.12,0x3e2723,DOOR_X-.55,1.1,-5.44);box(.1,2.2,.12,0x3e2723,DOOR_X+.55,1.1,-5.44);box(1.2,.1,.12,0x3e2723,DOOR_X,2.15,-5.44);
   door=new THREE.Group();door.position.set(DOOR_X-.5,0,-5.42);scene.add(door);
   door.add(bx(1,2.1,.06,0x6d4c41,.5,1.05,0),bx(.7,.8,.02,0x5d4037,.5,1.5,.04),bx(.7,.7,.02,0x5d4037,.5,.6,.04),sp(.04,0xffd740,.85,1.0,.06));
-  plaque(1.1,.28,(c,w,h)=>{c.fillStyle='#1b5e20';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='bold '+h*.6+'px sans-serif';c.textAlign='center';c.fillText('🚪 입구',w/2,h*.72)},DOOR_X,2.45,-5.44,0);
+  plaque(1.1,.28,(c,w,h)=>{c.fillStyle='#1b5e20';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='bold '+h*.6+'px '+FONT;c.textAlign='center';c.fillText('🚪 입구',w/2,h*.72)},DOOR_X,2.45,-5.44,0);
   
   ball=A(new THREE.Mesh(new THREE.IcosahedronGeometry(.45,1),mat(0xdddddd,{metalness:.9,roughness:.2})));ball.position.set(0,3.5,-3);
   [0xff00ff,0x00e5ff,0xffee00].forEach(c=>{
@@ -631,15 +664,30 @@ function tick(){
     
     let sw=Math.sin(t*1.7+p.ph)*p.dv*.014;
     let lL=sit?-1.5:s,lR=sit?-1.5:-s;
-    let aLx=sit?-.5:-s*.8,aLz=0,aRx=sit?-.5:s*.8,aRz=0;
+    let aLx=sit?-.5:-s*.8,aLz=0,aRx=sit?-.5:s*.8,aRz=0,pourTilt=0;
     
     // 7. 만취(취기 6 이상) 시 네발로 기어다니는 모션 
     const isCrawling = p.dv >= 6 && !sit;
 
     if(p.bounce>0){aLx=aRx=0;aLz=-2.4;aRz=2.4;y+=Math.abs(Math.sin(t*14))*.25}
-    else if(a==='pour'){aLx=-1.5;aLz=.5;aRx=-1.5;aRz=-.5}
-    else if(a==='smoke'||a==='drink'||a==='water'){aLx=0;aRx=-2.5+Math.sin(t*(a==='smoke'?1.5:6))*.12;
-      if(a==='smoke'){p.pt-=dt;if(p.pt<=0){p.pt=.2;p.cig.getWorldPosition(tmpV);puff(tmpV)}}}
+    else if(a==='pour'){
+      // 왼손: 잔을 앞에 들고 / 오른손: 병을 위로 들어 기울여서 따름
+      const u=(4-p.at)/4,K=clamp(u/.15,0,1)*(1-clamp((u-.9)/.1,0,1));
+      aLx=-1.5*K;aLz=.55*K;aRx=-1.9*K;aRz=-.55*K;
+      const ph=u<.75?.3+2.2*clamp((u-.2)/.25,0,1):2.5-2.2*clamp((u-.75)/.2,0,1);
+      pourTilt=ph*K;
+      if(ph>1.9&&u>.38&&u<.8){p.pt-=dt;if(p.pt<=0){p.pt=.04;tmpV.set(0,0,.29);p.bottle.localToWorld(tmpV);burst(tmpV,0xf0d890,1,.12,9)}}
+    }
+    else if(a==='drink'||a==='water'){aLx=0;aRx=-2.5+Math.sin(t*6)*.12}
+    else if(a==='smoke'){
+      // 5번 반복: 손을 입으로(빨기) → 내리고 → 입에서 연기 내뿜기
+      const f=((11-p.at)/2.2)%1,S=p.gender==='f'?[-2.62,-.58]:[-2.51,-.8];
+      let k=0;if(f<.2)k=f/.2;else if(f<.45)k=1;else if(f<.65)k=1-(f-.45)/.2;
+      k=k*k*(3-2*k);aLx=0;aRx=S[0]*k;aRz=S[1]*k;
+      if(f>=.5&&f<.95){p.pt-=dt;if(p.pt<=0){p.pt=.07;
+        p.head.getWorldPosition(tmpV);const fx=Math.sin(g.rotation.y),fz=Math.cos(g.rotation.y);
+        tmpV.x+=fx*.18;tmpV.y-=.06;tmpV.z+=fz*.18;puff(tmpV,fx*.35+rnd(-.1,.1),fz*.35+rnd(-.1,.1))}}
+    }
     else if(a==='dance'){
       const m=Math.floor(t/1.6)%3,k=Math.sin(t*8);
       y+=Math.abs(k)*.1;sw+=Math.sin(t*4)*.12;lL=k*.6;lR=-k*.6;
@@ -687,7 +735,7 @@ function tick(){
       else{y+=Math.sin(p.hit/.7*Math.PI)*.3;aRx=-1+Math.sin(t*35)*.5;aRz=0}
     }
     p.legL.rotation.x=lL;p.legR.rotation.x=lR;
-    p.armL.rotation.set(aLx,0,aLz);p.armR.rotation.set(aRx,0,aRz);
+    p.armL.rotation.set(aLx,0,aLz);p.armR.rotation.set(aRx,0,aRz);p.bottle.rotation.x=pourTilt;
     g.position.y=y;g.rotation.z=sw;
     if(p.bub){p.bt-=dt;if(p.bt<=0){g.remove(p.bub);p.bub=null}}
   }
@@ -753,7 +801,7 @@ function tick(){
   }
   doorT=Math.max(0,doorT-dt);
   door.rotation.y+=((doorT>0?-1.75:0)-door.rotation.y)*Math.min(1,dt*5);
-  for(let i=puffs.length-1;i>=0;i--){const u=puffs[i];u.t+=dt;u.m.position.y+=dt*.5;u.m.position.x+=dt*.05;
+  for(let i=puffs.length-1;i>=0;i--){const u=puffs[i];u.t+=dt;u.m.position.y+=dt*.4;u.m.position.x+=dt*u.vx;u.m.position.z+=dt*u.vz;u.vx*=1-dt*1.2;u.vz*=1-dt*1.2;
     const k=1+u.t*2;u.m.scale.set(k,k,k);u.m.material.opacity=Math.max(0,.55-u.t*.28);
     if(u.t>2){scene.remove(u.m);u.m.material.dispose();puffs.splice(i,1)}}
   for(let i=parts.length-1;i>=0;i--){const u=parts[i];u.t+=dt;u.vy-=u.g*dt;
