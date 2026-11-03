@@ -6,14 +6,13 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const MAX = 6;        // 방당 최대 인원
-const MAXD = 8;       // 최대 취기
-const HSLOTS = 4;     // 도우미 최대 인원
+const MAX = 6;        
+const MAXD = 8;       
+const HSLOTS = 4;     
 const ACTS = ['clap', 'tmb', 'smoke', 'pour', 'drink', 'water', 'dance', 'hug', 'slap', 'burn', 'stop'];
 const TARGETED = ['hug', 'slap', 'burn'];
-const rooms = {}; // 방코드 -> { players, mic, helperAt, helpers, hid }
+const rooms = {}; 
 
-// 도우미 랜덤 대사 (술집 도우미 느낌)
 const LINES = {
   f: [
     '오빠~ 오늘 왜 이렇게 멋있어요~?',
@@ -85,7 +84,7 @@ io.on('connection', (s) => {
     const R = cur();
     if (!R) return;
     const p = R.players[s.id];
-    if (!p || p.seat !== null) return; // 앉아있으면 이동 불가
+    if (!p || p.seat !== null) return; 
     p.x = num(m.x, 4);
     p.z = num(m.z, 5.5);
     p.ry = num(m.ry, 7);
@@ -98,7 +97,6 @@ io.on('connection', (s) => {
     if (text) io.to(room).emit('chat', { id: s.id, text });
   });
 
-  // 행동: 문자열 또는 { type, target }
   s.on('emote', (e) => {
     const R = cur();
     if (!R) return;
@@ -107,24 +105,29 @@ io.on('connection', (s) => {
     const p = R.players[s.id];
     if (!p) return;
     const out = { id: s.id, type };
+    
+    // 도우미도 타겟팅 가능하도록 수정
     if (TARGETED.includes(type)) {
-      const t = R.players[e && e.target];
-      if (!t || t.id === s.id || p.seat !== null || t.seat !== null) return;
-      if (Math.hypot(t.x - p.x, t.z - p.z) > 4.5) return;
+      let t = R.players[e && e.target] || R.helpers.find(h => h.id === (e && e.target));
+      if (!t || t.id === s.id) return;
+      
+      // 대상이 유저인데 앉아있다면 실패. (도우미는 앉을 일이 없으므로 seat 체크 무시)
+      if (p.seat !== null || (t.seat !== undefined && t.seat !== null)) return;
+      
       out.target = t.id;
     }
+    
     if (type === 'dance' && p.seat !== null) return;
     io.to(room).emit('emote', out);
     if (type === 'drink') {
       p.drunk = Math.min(MAXD, p.drunk + 1);
       io.to(room).emit('drunk', { id: s.id, level: p.drunk });
     } else if (type === 'water') {
-      p.drunk = 0; // 물 마시면 술 깸
+      p.drunk = 0; 
       io.to(room).emit('drunk', { id: s.id, level: 0 });
     }
   });
 
-  // 앉기 / 일어나기
   s.on('sit', (m = {}) => {
     const R = cur();
     if (!R) return;
@@ -157,7 +160,6 @@ io.on('connection', (s) => {
     }
   });
 
-  // 도우미 부르기 (gender: 'f' | 'm') - 한번 들어오면 내보내기 전까지 안 사라짐
   s.on('helper', (g) => {
     const R = cur();
     if (!R || Date.now() - R.helperAt < 3000) return;
@@ -171,7 +173,6 @@ io.on('connection', (s) => {
     io.to(room).emit('helper', Object.assign({ by: s.id }, h));
   });
 
-  // 도우미 내보내기 (가장 먼저 온 도우미부터 문으로 나감)
   s.on('helperBye', () => {
     const R = cur();
     if (!R) return;
@@ -193,7 +194,6 @@ io.on('connection', (s) => {
   });
 });
 
-// 도우미 랜덤 대사
 setInterval(() => {
   for (const k in rooms) {
     const R = rooms[k];
@@ -209,7 +209,6 @@ setInterval(() => {
   }
 }, 6000);
 
-// 시간이 지나면 취기가 조금씩 빠짐
 setInterval(() => {
   for (const k in rooms) {
     const R = rooms[k];
