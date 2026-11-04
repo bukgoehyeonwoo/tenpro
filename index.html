@@ -298,7 +298,7 @@ const MENU=[
 const spendMap={},tItems={};let roomTotal=0,billShown=0,billShownR=0,lastBill='',lastBillR='',rc=[];
 const won=n=>'₩'+Math.round(n).toLocaleString('ko-KR');
 const MOB=matchMedia('(pointer:coarse)').matches||innerWidth<700,BASE_FOV=MOB?2*Math.atan(Math.tan(65*Math.PI/360)/.8)*180/Math.PI:65;
-let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0,composer,tvPass,fanHead,fanBlades;
+let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0,composer,tvScreen,tvMat,tvHole,fanHead,fanBlades;
 const tvTex=new THREE.TextureLoader().load('/assets/tv.jpg');
 
 const SEATS=[];
@@ -1092,7 +1092,9 @@ function build(){
   [-.28,-.2].forEach(x=>A(smoothCy(.02,.02,.03,0xc0c0c0,x,1.18,-5.12,{metalness:.8},12)));
   [.12,.2,.28].forEach(x=>box(.05,.02,.015,0xff4040,x,1.115,-5.04,{emissive:0xff2020,emissiveIntensity:.8}));
   RB(3.55,2.0,.12,.04,0x0d0d10,0,2.45,-5.43,{roughness:.35,metalness:.4});
-  A(new THREE.Mesh(new THREE.PlaneGeometry(3.2,1.8),new THREE.MeshBasicMaterial({map:tvTex,color:0xdddddd}))).position.set(0,2.45,-5.365);
+  tvScreen=A(new THREE.Mesh(new THREE.PlaneGeometry(3.2,1.8),tvMat=new THREE.MeshBasicMaterial({map:tvTex,color:0xdddddd})));tvScreen.position.set(0,2.45,-5.365);
+  // 영상 재생 중엔 화면을 '투명 구멍'(색0·알파0)으로 바꿈: 앞의 사람/닉네임/연기는 그대로 위에 그려지고, 뒤에 깔린 영상이 비침
+  tvHole=new THREE.MeshBasicMaterial({blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.ZeroFactor,blendDst:THREE.ZeroFactor,blendSrcAlpha:THREE.ZeroFactor,blendDstAlpha:THREE.ZeroFactor});
   box(.06,.06,.01,0x00e5ff,1.6,1.5,-5.36,{emissive:0x00e5ff});
 
   // 스피커 (콘 + 트위터 + 브라켓)
@@ -1170,19 +1172,14 @@ function build(){
   scene.traverse(m=>{if(m.isMesh&&m.castShadow&&m.geometry){m.geometry.computeBoundingSphere();if(m.geometry.boundingSphere.radius<.45)m.castShadow=false}});
   const renderScene = new THREE.RenderPass(scene, camera);
   const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.35, 0.82);
+  // 블룸이 알파(투명도)를 건드리지 않게: 색만 더하고 알파는 그대로 둠
+  {const mc=bloomPass.materialCopy;mc.blending=THREE.CustomBlending;mc.blendEquation=THREE.AddEquation;mc.blendSrc=THREE.SrcAlphaFactor;mc.blendDst=THREE.OneFactor;mc.blendSrcAlpha=THREE.ZeroFactor;mc.blendDstAlpha=THREE.OneFactor}
   composer = new THREE.EffectComposer(renderer);
-  // 장면 깊이를 보관 → 마지막 패스에서 "TV 화면이 실제로 보이는 픽셀"만 투명하게 뚫어 뒤의 영상이 비치게 함 (사람/가구가 앞을 지나가면 가려짐)
-  [composer.renderTarget1,composer.renderTarget2].forEach(rt=>{rt.depthTexture=new THREE.DepthTexture(rt.width,rt.height,THREE.UnsignedIntType)});
   composer.addPass(renderScene);
   composer.addPass(bloomPass);
-  tvPass=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},tDepth:{value:null},uInv:{value:new THREE.Matrix4()},uOn:{value:0}},
-    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:'uniform sampler2D tDiffuse,tDepth;uniform mat4 uInv;uniform float uOn;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);float a=1.;if(uOn>.5){float d=texture2D(tDepth,vUv).x;vec4 w=uInv*vec4(vUv*2.-1.,d*2.-1.,1.);w/=w.w;if(abs(w.z+5.365)<.03&&abs(w.x)<1.6&&w.y>1.55&&w.y<3.35)a=0.;}gl_FragColor=vec4(c.rgb*a,a);}'});
-  tvPass.render=function(r,w,rb,dt,m){this.uniforms.tDepth.value=rb.depthTexture;THREE.ShaderPass.prototype.render.call(this,r,w,rb,dt,m)};
-  composer.addPass(tvPass);
 }
 
-const _im=new THREE.Matrix4();let lastFilter='';
+let lastFilter='';
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(clock.getDelta(),.1),t=clock.elapsedTime,L=players[me];
@@ -1420,7 +1417,7 @@ function tick(){
     u.m.material.opacity=Math.max(0,1-u.t/u.life);
     if(u.t>u.life){scene.remove(u.m);u.m.material.dispose();parts.splice(i,1)}}
   
-  if(tvPass){const on=tvMode===true&&$('vbox').classList.contains('on');tvPass.uniforms.uOn.value=on?1:0;if(on){camera.updateMatrixWorld();_im.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).invert();tvPass.uniforms.uInv.value.copy(_im)}}
+  if(tvScreen){const m=(tvMode===true&&$('vbox').classList.contains('on'))?tvHole:tvMat;if(tvScreen.material!==m)tvScreen.material=m}
   if(composer) composer.render();
   else renderer.render(scene,camera);
   updateVideoTV();

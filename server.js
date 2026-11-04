@@ -224,16 +224,16 @@ io.on('connection', (s) => {
       io.to(room).emit('mic', { id: s.id });
     } else if (R.mic === s.id) {
       R.mic = null;
-      if (R.video) { R.video = null; io.to(room).emit('video', { id: null }); }
       io.to(room).emit('mic', { id: null });
       io.to(room).emit('score', { id: s.id, score: 60 + Math.floor(Math.random() * 41) });
     }
   });
 
-  // 마이크 잡은 사람만 노래 영상(유튜브 ID)을 틀거나 끌 수 있음. 마이크를 내려놓으면 자동 종료
+  // 방에 있는 누구나 영상(유튜브 ID)을 틀거나 끌 수 있음 (마이크와 무관, 마이크를 내려놔도 영상은 유지)
   s.on('video', (id) => {
     const R = cur();
-    if (!R || R.mic !== s.id) return;
+    if (!R || Date.now() - (s.vAt || 0) < 700) return;
+    s.vAt = Date.now();
     if (id) {
       id = String(id);
       if (!/^[\w-]{11}$/.test(id)) return;
@@ -300,7 +300,6 @@ io.on('connection', (s) => {
     delete R.spend[s.id];
     if (R.mic === s.id) {
       R.mic = null;
-      if (R.video) { R.video = null; io.to(room).emit('video', { id: null }); }
       io.to(room).emit('mic', { id: null });
     }
     io.to(room).emit('leave', s.id);
