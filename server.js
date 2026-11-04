@@ -11,6 +11,15 @@ const MAXD = 8;
 const HSLOTS = 4;     
 const ACTS = ['clap', 'tmb', 'smoke', 'pour', 'recv', 'cash', 'drink', 'water', 'dance', 'hug', 'slap', 'burn', 'stop'];
 const TARGETED = ['hug', 'slap', 'burn'];
+const HELPER_FEE = 150000, CASH_FEE = 50000, DRINK_MAX = 10, FOOD_MAX = 12;
+// id: [분류, 가격, 이름]  (분류 food = 안주 구역, 나머지 = 술 구역)
+const MENU = {
+  w17: ['liq', 250000, '윈저 17년'], b17: ['liq', 330000, '발렌타인 17년'], hv: ['liq', 480000, '헤네시 VSOP'],
+  rs: ['liq', 780000, '로얄살루트 21년'], jb: ['liq', 880000, '조니워커 블루'], dp: ['liq', 900000, '돔 페리뇽'],
+  fr: ['food', 80000, '과일안주'], dr: ['food', 50000, '마른안주'], ch: ['food', 70000, '치즈 플래터'],
+  gb: ['food', 40000, '골뱅이무침'], fy: ['food', 50000, '모듬튀김'], sp: ['food', 150000, '스페셜 플래터'],
+  sj: ['soju', 12000, '소주'], bm: ['soju', 12000, '맥주'],
+};
 const rooms = {}; 
 
 const LINES = {
@@ -59,13 +68,17 @@ const num = (v, lim) => Math.max(-lim, Math.min(lim, Number(v) || 0));
 io.on('connection', (s) => {
   let room = null;
   const cur = () => room && rooms[room];
+  const charge = (R, amt, label) => {
+    R.spend[s.id] = (R.spend[s.id] || 0) + amt; R.total += amt;
+    io.to(room).emit('spend', { id: s.id, total: R.spend[s.id], room: R.total, amt, label });
+  };
 
   s.on('join', ({ name, room: r, gender } = {}) => {
     if (room) return;
     r = String(r || '노래방').slice(0, 20);
     name = String(name || '익명').slice(0, 10);
     gender = gender === 'f' ? 'f' : 'm';
-    const R = rooms[r] || (rooms[r] = { players: {}, mic: null, helperAt: 0, helpers: [], hid: 0, cash: [] });
+    const R = rooms[r] || (rooms[r] = { players: {}, mic: null, helperAt: 0, helpers: [], hid: 0, cash: [], table: [], tid: 0, spend: {}, total: 0 });
     if (Object.keys(R.players).length >= MAX) return s.emit('full');
     const used = new Set(Object.values(R.players).map((p) => p.color));
     let color = 0;
@@ -78,7 +91,7 @@ io.on('connection', (s) => {
     R.players[s.id] = p;
     room = r;
     s.join(r);
-    s.emit('init', { id: s.id, players: Object.values(R.players), mic: R.mic, helpers: R.helpers, cash: R.cash });
+    s.emit('init', { id: s.id, players: Object.values(R.players), mic: R.mic, helpers: R.helpers, cash: R.cash, table: R.table, spend: R.spend, total: R.total });
     s.to(r).emit('join', p);
   });
 
@@ -125,6 +138,7 @@ io.on('connection', (s) => {
       out.seed = (Math.random() * 4294967296) >>> 0;
       R.cash.push({ seed: out.seed, x: p.x, z: p.z });
       if (R.cash.length > 8) R.cash.shift();
+      charge(R, CASH_FEE, '돈 뿌리기');
     }
     io.to(room).emit('emote', out);
     if (type === 'drink') {
@@ -178,6 +192,7 @@ io.on('connection', (s) => {
     const h = { id: 'h' + ++R.hid, gender: g === 'm' ? 'm' : 'f', spot };
     R.helpers.push(h);
     R.helperAt = Date.now();
+    charge(R, HELPER_FEE, '도우미 호출');
     io.to(room).emit('helper', Object.assign({ by: s.id }, h));
   });
 
@@ -189,10 +204,37 @@ io.on('connection', (s) => {
     io.to(room).emit('helperLeave', { id: h.id, by: s.id });
   });
 
+  s.on('order', (id) => {
+    const R = cur();
+    const m = R && MENU[id];
+    const p = R && R.players[s.id];
+    if (!m || !p || Date.now() - (p.oAt || 0) < 350) return;
+    p.oAt = Date.now();
+    const z = m[0] === 'food' ? 'f' : 'd';
+    const same = R.table.filter((t) => t.z === z);
+    if (same.length >= (z === 'f' ? FOOD_MAX : DRINK_MAX)) return s.emit('notice', '테이블이 꽉 찼어요! 치우기를 눌러주세요');
+    const used = new Set(same.map((t) => t.slot));
+    let slot = 0;
+    while (used.has(slot)) slot++;
+    const item = { uid: ++R.tid, id, z, slot };
+    R.table.push(item);
+    io.to(room).emit('ordered', { by: s.id, name: p.name, item, label: m[2] });
+    charge(R, m[1], m[2]);
+  });
+
+  s.on('clearTable', () => {
+    const R = cur();
+    const p = R && R.players[s.id];
+    if (!p || !R.table.length) return;
+    R.table = [];
+    io.to(room).emit('tableClear', { by: s.id, name: p.name });
+  });
+
   s.on('disconnect', () => {
     const R = cur();
     if (!R) return;
     delete R.players[s.id];
+    delete R.spend[s.id];
     if (R.mic === s.id) {
       R.mic = null;
       io.to(room).emit('mic', { id: null });
