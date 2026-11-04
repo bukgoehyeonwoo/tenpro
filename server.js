@@ -63,6 +63,50 @@ app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
+// ===== TJ노래방 채널 영상 검색 (YT_KEY 환경변수 필요, 키는 서버에만 보관) =====
+const YT_KEY = process.env.YT_KEY || '';
+let ytChan = null;
+const ytCache = new Map(), ytLast = new Map();
+const unesc = (t) => String(t).replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+async function ytApi(p, params) {
+  const u = new URL('https://www.googleapis.com/youtube/v3/' + p);
+  Object.entries(Object.assign({}, params, { key: YT_KEY })).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('yt ' + r.status);
+  return r.json();
+}
+app.get('/yt/search', async (req, res) => {
+  if (!YT_KEY) return res.status(503).json({ error: 'nokey' });
+  const q = String(req.query.q || '').trim().slice(0, 60);
+  if (!q) return res.json({ items: [] });
+  const now = Date.now(), ip = req.ip;
+  if (now - (ytLast.get(ip) || 0) < 1000) return res.status(429).json({ error: 'slow' });
+  ytLast.set(ip, now);
+  const hit = ytCache.get(q);
+  if (hit && now - hit.t < 600000) return res.json({ items: hit.items });   // 10분 캐시 (쿼터 절약)
+  try {
+    if (ytChan === null) {
+      try {
+        const c = await ytApi('channels', { part: 'id', forHandle: '@TJ노래방TJKaraoke' });
+        if (c.items && c.items[0]) ytChan = c.items[0].id;
+      } catch (e) { /* 다음 요청에서 재시도 */ }
+    }
+    const p = { part: 'snippet', type: 'video', videoEmbeddable: 'true', maxResults: 10, q: ytChan ? q : 'TJ노래방 ' + q };
+    if (ytChan) p.channelId = ytChan;
+    const d = await ytApi('search', p);
+    const items = (d.items || []).filter((i) => i.id && i.id.videoId).map((i) => ({
+      id: i.id.videoId, title: unesc(i.snippet.title),
+      thumb: (i.snippet.thumbnails.default || {}).url || '',
+    }));
+    if (ytCache.size > 200) ytCache.clear();
+    ytCache.set(q, { t: now, items });
+    res.json({ items });
+  } catch (e) {
+    console.log('YouTube 검색 실패:', e.message);
+    res.status(502).json({ error: 'fail' });
+  }
+});
+
 const num = (v, lim) => Math.max(-lim, Math.min(lim, Number(v) || 0));
 
 io.on('connection', (s) => {
@@ -78,7 +122,7 @@ io.on('connection', (s) => {
     r = String(r || '노래방').slice(0, 20);
     name = String(name || '익명').slice(0, 10);
     gender = gender === 'f' ? 'f' : 'm';
-    const R = rooms[r] || (rooms[r] = { players: {}, mic: null, helperAt: 0, helpers: [], hid: 0, cash: [], table: [], tid: 0, spend: {}, total: 0 });
+    const R = rooms[r] || (rooms[r] = { players: {}, mic: null, helperAt: 0, helpers: [], hid: 0, cash: [], table: [], tid: 0, spend: {}, total: 0, video: null });
     if (Object.keys(R.players).length >= MAX) return s.emit('full');
     const used = new Set(Object.values(R.players).map((p) => p.color));
     let color = 0;
@@ -91,7 +135,7 @@ io.on('connection', (s) => {
     R.players[s.id] = p;
     room = r;
     s.join(r);
-    s.emit('init', { id: s.id, players: Object.values(R.players), mic: R.mic, helpers: R.helpers, cash: R.cash, table: R.table, spend: R.spend, total: R.total });
+    s.emit('init', { id: s.id, players: Object.values(R.players), mic: R.mic, helpers: R.helpers, cash: R.cash, table: R.table, spend: R.spend, total: R.total, video: R.video ? { id: R.video.id, el: Date.now() - R.video.t0 } : null });
     s.to(r).emit('join', p);
   });
 
@@ -177,8 +221,24 @@ io.on('connection', (s) => {
       io.to(room).emit('mic', { id: s.id });
     } else if (R.mic === s.id) {
       R.mic = null;
+      if (R.video) { R.video = null; io.to(room).emit('video', { id: null }); }
       io.to(room).emit('mic', { id: null });
       io.to(room).emit('score', { id: s.id, score: 60 + Math.floor(Math.random() * 41) });
+    }
+  });
+
+  // 마이크 잡은 사람만 노래 영상(유튜브 ID)을 틀거나 끌 수 있음. 마이크를 내려놓으면 자동 종료
+  s.on('video', (id) => {
+    const R = cur();
+    if (!R || R.mic !== s.id) return;
+    if (id) {
+      id = String(id);
+      if (!/^[\w-]{11}$/.test(id)) return;
+      R.video = { id, t0: Date.now() };
+      io.to(room).emit('video', { id, by: s.id, el: 0 });
+    } else {
+      R.video = null;
+      io.to(room).emit('video', { id: null });
     }
   });
 
@@ -237,6 +297,7 @@ io.on('connection', (s) => {
     delete R.spend[s.id];
     if (R.mic === s.id) {
       R.mic = null;
+      if (R.video) { R.video = null; io.to(room).emit('video', { id: null }); }
       io.to(room).emit('mic', { id: null });
     }
     io.to(room).emit('leave', s.id);

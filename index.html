@@ -165,6 +165,12 @@ html,body{position:fixed;width:100%;top:0;left:0}
 body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 #top,#bill,#singer,#score,#toast{margin-top:var(--vt,0px)}
 @media(pointer:coarse),(max-width:700px){#order{bottom:calc(10px + var(--kb,0px))}}
+#vbox{position:fixed;top:calc(64px + var(--vt,0px));left:50%;transform:translateX(-50%);width:min(380px,56vw);aspect-ratio:16/9;display:none;z-index:7;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 6px 24px #0008}
+#vbox.on{display:block}#vfr{width:100%;height:100%;border:0}
+#vx{position:absolute;top:4px;right:4px;z-index:2;border:0;border-radius:50%;width:28px;height:28px;background:#000a;color:#fff;font-size:14px}
+#vpick{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,90vw);padding:16px;display:none;z-index:9}
+#vpick.on{display:block}
+#vres{max-height:38vh;overflow:auto;margin-top:8px;font-size:13px}.vit{display:flex;gap:8px;align-items:center;width:100%;text-align:left;border:0;background:#0000000d;border-radius:8px;padding:6px;margin-bottom:4px;font-size:13px;color:inherit}.vit img{width:72px;border-radius:4px;flex:none}
 </style></head><body>
 
 <div id="join">
@@ -183,6 +189,11 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 <div id="singer" class="clean-box"><span class="eq"><i></i><i></i><i></i><i></i></span><span id="singerTxt"></span></div>
 <div id="score" class="clean-box"><div id="scoreName"></div><div id="scoreNum"></div></div>
 <div id="toast"></div>
+<div id="vbox"><button id="vx">✕</button><iframe id="vfr" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+<div id="vpick" class="clean-box"><div style="font-weight:700;margin-bottom:8px">🎬 TJ노래방 영상 틀기</div>
+<input id="vurl" placeholder="곡 제목 검색 (또는 유튜브 링크 붙여넣기)" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px;border-radius:10px;border:1px solid #bbb">
+<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button id="vplay" class="abtn highlight">▶ 재생</button><button id="vfind" class="abtn">🔎 검색</button><button id="vstop" class="abtn">⏹ 끄기</button><button id="vclose" class="abtn">닫기</button></div>
+<div id="vres"></div><div style="font-size:12px;opacity:.7;margin-top:8px;line-height:1.4">TJ노래방 채널에서 곡 제목으로 검색해 눌러 재생해요. 모두의 화면에 같이 나와요.</div></div>
 <div id="bill" class="clean-box"><div class="bl">유흥비</div><div id="billMe">₩0</div><div id="billRoom">룸 합계 ₩0</div><div id="rcpt"></div></div>
 <div id="vig"></div><div id="flash"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -193,6 +204,7 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
     <div id="sub-actions">
       <div id="grp-basic" class="act-grp clean-box active">
         <button id="mic" class="abtn highlight">마이크</button>
+        <button id="vid" class="abtn" style="display:none">🎬 노래영상</button>
         <button id="sit" class="abtn highlight">앉기</button>
         <button id="clap" class="abtn">박수</button>
         <button id="tmb" class="abtn">탬버린</button>
@@ -313,7 +325,7 @@ function label(text,bg){
 let toastT,scoreT;
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2200)}
 function setMic(id){
-  micId=id;$('mic').textContent=id===me?'마이크 내려놓기':'마이크';
+  micId=id;$('mic').textContent=id===me?'마이크 내려놓기':'마이크';$('vid').style.display=id===me?'':'none';if(id!==me)$('vpick').classList.remove('on');
   const e=$('singer');
   if(id&&players[id]){$('singerTxt').textContent=players[id].name+' 열창중';e.classList.add('on')}else e.classList.remove('on');
 }
@@ -457,13 +469,43 @@ function standUp(p,send){
   if(send)socket.emit('sit',{seat:null,x:s.sx,z:s.sz,ry:p.g.rotation.y});
 }
 
+function hashS(x){let h=2166136261;for(const c of String(x)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function rng(a){return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+// 통로(x=±1.85)·앞줄(z=3.9)만 따라 걷는 간단 길찾기 (테이블/소파 안 뚫음)
+function route(h,tx,tz){const g=h.g.position,cx=g.x,cz=g.z,w=[],L=1.85;
+  const A=cz>3.3&&Math.abs(cx)<1.5?'f':'a',B=tz>3.3&&Math.abs(tx)<1.5?'f':'a',sA=cx<0?-1:1,sB=tx<0?-1:1;
+  if(A==='f'){if(B==='f')w.push([tx,tz]);else w.push([sB*L,3.9],[sB*L,tz],[tx,tz])}
+  else{w.push([sA*L,cz]);
+    if(B==='a'&&sA===sB)w.push([sA*L,tz],[tx,tz]);
+    else{w.push([sA*L,3.9]);if(B==='f')w.push([tx,3.9],[tx,tz]);else w.push([sB*L,3.9],[sB*L,tz],[tx,tz])}}
+  return w}
+function standH(h){if(h.seat==null)return;const s=SEATS[h.seat];h.g.position.set(s.sx,0,s.sz);h.seat=null;h.sitNow=false}
+// 11초마다 모든 클라이언트가 같은 시드로 같은 행동을 고름 (서버 수정 없이 동기화)
+function pickAct(h){
+  const rn=rng(hashS(h.id)+Math.imul(h.slot,2654435761)),r=rn(),was=h.sitNow;
+  if(was&&r<.45)return;
+  let mode=r<.3?'sit':r<.52?'sing':r<.76?'dance':'spot';
+  if(mode==='sing'&&micId)mode='dance';
+  if(was)standH(h);
+  let tx=h.hx,tz=3.9;h.face=Math.PI;
+  if(mode==='sit'){
+    const taken=new Set([...Object.values(players).map(p=>p.seat),...Object.values(helpers).filter(o=>o!==h).map(o=>o.seat)]),free=[];
+    for(let i=4;i<SEATS.length;i++)if(!taken.has(i))free.push(i);
+    const ps=Object.values(players).filter(p=>p.seat!=null&&p.seat>=4);let pick=null;
+    if(free.length){
+      if(ps.length){const T=SEATS[ps[Math.floor(rn()*ps.length)].seat];free.sort((a,b)=>Math.hypot(SEATS[a].x-T.x,SEATS[a].z-T.z)-Math.hypot(SEATS[b].x-T.x,SEATS[b].z-T.z));pick=free[0]}
+      else pick=free[Math.floor(rn()*free.length)]}
+    if(pick==null)mode='spot';else{h.seat=pick;tx=SEATS[pick].x;tz=SEATS[pick].z}}
+  if(mode==='sing'){tx=(rn()-.5)*1.6;tz=-2.6;h.face=0}
+  else if(mode==='dance'){const sd=rn()<.5?-1:1;tx=sd*1.85;tz=rn()*2.6-.3;h.face=-sd*Math.PI/2}
+  h.mode=mode;h.sitNow=false;h.wp=route(h,tx,tz)}
 function spawnHelper(h,instant){
   if(helpers[h.id])return;
   const f=h.gender==='f';
   const hn=parseInt(String(h.id).slice(1))||0,r=body({f:f?1:0,k:'h',v:f?hn%6:hn%4,helper:1});
   if(f)r.armL.rotation.z=-.25;
-  const nm=label('도우미',f?'#c2185bcc':'#283593cc');nm.position.y=2.1;r.g.add(nm);
-  const o=Object.assign(r,{id:h.id,gender:h.gender,name:'도우미',bub:null,bt:0,wp:[],state:'in',delay:0,hx:HSP[h.spot]!==undefined?HSP[h.spot]:0,ph:Math.random()*6,hit:0,hitType:''});
+  const mic=new THREE.Group();mic.add(cy(.016,.016,.12,0x222222,0,-.58,0),new THREE.Mesh(new THREE.SphereGeometry(.034,12,10),mat(0xcfd8dc,{metalness:.5,flatShading:false}))).children[1].position.set(0,-.66,0);mic.visible=false;r.armR.add(mic);
+  const o=Object.assign(r,{id:h.id,gender:h.gender,name:'도우미',bub:null,bt:0,wp:[],state:'in',delay:0,hx:HSP[h.spot]!==undefined?HSP[h.spot]:0,ph:Math.random()*6,hit:0,hitType:'',mic,mode:'spot',seat:null,sitNow:false,face:Math.PI,off:hashS(h.id)%11000,slot:Math.floor((Date.now()+hashS(h.id)%11000)/11000)});
   helpers[h.id]=o;scene.add(r.g);
   if(instant){r.g.position.set(o.hx,0,3.9);r.g.rotation.y=Math.PI;o.state='idle'}
   else{r.g.position.set(DOOR_X,0,DOOR_Z+.05);r.g.visible=false;o.delay=1.1;o.wp=[[DOOR_X,-4.2],[-1.9,-3.1],[-1.9,3.9],[o.hx,3.9]]}
@@ -473,7 +515,7 @@ socket.on('init',d=>{
   me=d.id;$('join').style.display='none';$('ui').style.display='flex';$('top').style.display='block';
   if(matchMedia('(pointer:coarse)').matches||'ontouchstart' in globalThis)$('joy').style.display='block';
   history.replaceState(null,'','?room='+encodeURIComponent(roomName));
-  build();look();d.players.forEach(add);(d.helpers||[]).forEach(h=>spawnHelper(h,true));(d.cash||[]).forEach(c=>settleBills(c.seed,c.x,c.z));(d.table||[]).forEach(it=>addItem(it,true));Object.assign(spendMap,d.spend||{});roomTotal=d.total||0;$('bill').style.display='block';setMic(d.mic);clock=new THREE.Clock();tick();
+  build();look();d.players.forEach(add);(d.helpers||[]).forEach(h=>spawnHelper(h,true));(d.cash||[]).forEach(c=>settleBills(c.seed,c.x,c.z));(d.table||[]).forEach(it=>addItem(it,true));Object.assign(spendMap,d.spend||{});roomTotal=d.total||0;$('bill').style.display='block';setMic(d.mic);showVideo(d.video&&d.video.id,d.video&&d.video.el);clock=new THREE.Clock();tick();
 });
 socket.on('join',p=>{add(p)});
 socket.on('leave',id=>{const p=players[id];if(!p)return;scene.remove(p.g);delete players[id];updateTop()});
@@ -509,10 +551,28 @@ socket.on('sit',m=>{const p=players[m.id];if(!p||m.id===me)return;p.seat=m.seat;
 socket.on('sitfail',()=>{const L=players[me];if(L&&L.seat!=null){standUp(L,true);toast('이미 누가 앉아 있어요')}});
 socket.on('drunk',m=>{const p=players[m.id];if(!p)return;p.drunk=m.level;if(m.id===me)updateTop()});
 socket.on('mic',m=>setMic(m.id));
+function ytId(x){x=String(x||'').trim();const m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/)||x.match(/^([\w-]{11})$/);return m?m[1]:null}
+function showVideo(id,el){const b=$('vbox');if(!id){b.classList.remove('on');$('vfr').src='about:blank';return}
+  $('vfr').src='https://www.youtube.com/embed/'+id+'?autoplay=1&playsinline=1&rel=0&start='+Math.floor((el||0)/1000);b.classList.add('on')}
+socket.on('video',m=>showVideo(m.id,m.el));
+$('vid').onclick=()=>$('vpick').classList.toggle('on');$('vclose').onclick=()=>$('vpick').classList.remove('on');
+$('vplay').onclick=()=>{const id=ytId($('vurl').value);if(!id)return toast('유튜브 영상 링크를 붙여넣어 주세요');socket.emit('video',id);$('vpick').classList.remove('on')};
+$('vstop').onclick=()=>{socket.emit('video',null);$('vpick').classList.remove('on')};
+async function ytSearch(){const q=$('vurl').value.trim();if(!q)return;
+  if(/youtu/.test(q)&&ytId(q)){$('vplay').click();return}
+  const box=$('vres');box.textContent='검색중...';
+  try{const r=await fetch('/yt/search?q='+encodeURIComponent(q));
+    if(r.status===503){box.textContent='';open('https://www.youtube.com/@TJ%EB%85%B8%EB%9E%98%EB%B0%A9TJKaraoke/search?query='+encodeURIComponent(q),'_blank');toast('서버에 YT_KEY가 없어서 유튜브 검색창을 열었어요. 링크를 복사해 붙여넣어 주세요');return}
+    if(!r.ok)throw 0;const d=await r.json();box.textContent='';
+    if(!d.items.length){box.textContent='검색 결과가 없어요';return}
+    d.items.forEach(it=>{const b=document.createElement('button');b.className='vit';const im=document.createElement('img');im.src=it.thumb;const sp=document.createElement('span');sp.textContent=it.title;b.append(im,sp);b.onclick=()=>{socket.emit('video',it.id);$('vpick').classList.remove('on')};box.appendChild(b)})
+  }catch(e){box.textContent='검색에 실패했어요. 잠시 후 다시 해주세요'}}
+$('vfind').onclick=ytSearch;$('vurl').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')ytSearch()});
+$('vx').onclick=()=>showVideo(null);
 socket.on('score',m=>{const p=players[m.id];if(p)showScore(p.name,m.score)});
 socket.on('helper',m=>{spawnHelper(m,false)});
-socket.on('helperLeave',m=>{const h=helpers[m.id];if(!h)return;h.state='out';h.g.visible=true;h.delay=0;
-  h.wp=[[-1.9,3.9],[-1.9,-3.1],[DOOR_X,-4.2],[DOOR_X,DOOR_Z]];if(h.bub){h.g.remove(h.bub);h.bub=null}});
+socket.on('helperLeave',m=>{const h=helpers[m.id];if(!h)return;h.state='out';h.g.visible=true;h.delay=0;h.mode='spot';standH(h);h.sitNow=false;h.mic.visible=false;
+  h.wp=route(h,-1.9,-3.1).concat([[DOOR_X,-4.2],[DOOR_X,DOOR_Z]]);if(h.bub){h.g.remove(h.bub);h.bub=null}});
 socket.on('ordered',m=>{WQ.push(m.item);toast('🍾 '+m.name+' 님이 '+m.label+' 주문 · 웨이터가 가져옵니다')});
 socket.on('tableClear',m=>{WQ.length=0;waiters.forEach(w=>{if(w.cg){w.tray.remove(w.cg);w.cg=null}});for(const k in tItems){const g=tItems[k].g;scene.remove(g);g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose()});delete tItems[k]}toast(m.name+' 님이 테이블을 치웠어요')});
 socket.on('spend',m=>{spendMap[m.id]=m.total;roomTotal=m.room;if(m.id===me){rc.unshift(m.label+'  −'+won(m.amt));rc=rc.slice(0,30);$('rcpt').innerHTML=rc.join('<br>');const e=document.createElement('div');e.className='bpop';e.textContent='−'+won(m.amt);$('bill').appendChild(e);setTimeout(()=>e.remove(),1200)}});
@@ -558,7 +618,7 @@ $('sit').onclick=()=>{
   const L=players[me];if(!L)return;
   if(L.seat!=null){standUp(L,true);return}
   let b=-1,bd=2.8;
-  SEATS.forEach((s,i)=>{if(Object.values(players).some(q=>q.seat===i))return;const d=Math.hypot(s.x-L.g.position.x,s.z-L.g.position.z);if(d<bd){bd=d;b=i}});
+  SEATS.forEach((s,i)=>{if(Object.values(players).some(q=>q.seat===i)||Object.values(helpers).some(o=>o.seat===i))return;const d=Math.hypot(s.x-L.g.position.x,s.z-L.g.position.z);if(d<bd){bd=d;b=i}});
   if(b<0)return toast('근처에 빈 자리가 없어요 (의자·소파 근처로 가세요)');
   if(L.at>0){L.at=0;socket.emit('emote',{type:'stop'})}
   sitDown(L,b);socket.emit('sit',{seat:b,x:SEATS[b].x,z:SEATS[b].z,ry:SEATS[b].ry});
@@ -1019,9 +1079,9 @@ function build(){
   plaque(1.0,1.3,orangePoster,3.3,2.1,-5.47,0);
   // A3(297x420mm) 신곡 포스터 — 1유닛≈1m 기준 실제 크기, 소파 등받이 위 눈높이
   {const pt=new THREE.TextureLoader().load('/assets/poster.jpg',t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy()});
-   const pm=new THREE.Mesh(new THREE.PlaneGeometry(.297,.42),new THREE.MeshStandardMaterial({map:pt,emissive:0xffffff,emissiveMap:pt,emissiveIntensity:.45,roughness:.85}));
-   pm.position.set(3.965,1.62,-2.0);pm.rotation.y=-Math.PI/2;A(pm);
-   box(.012,.44,.317,0x1a1a1a,3.972,1.62,-2.0)}
+   const pm=new THREE.Mesh(new THREE.PlaneGeometry(.594,.84),new THREE.MeshStandardMaterial({map:pt,emissive:0xffffff,emissiveMap:pt,emissiveIntensity:.45,roughness:.85}));
+   pm.position.set(3.965,1.85,-2.0);pm.rotation.y=-Math.PI/2;A(pm);
+   box(.012,.88,.634,0x1a1a1a,3.972,1.85,-2.0)}
   plaque(5.8,1.8,(x,w,h)=>{artDraw('#2a0f5a','#0b3a6e')(x,w,h);x.fillStyle='rgba(0,0,0,.4)';x.fillRect(0,0,w,h)},-3.97,2.5,1,Math.PI/2,1024,0xaaaaaa);
   [[1.8+.04,0,.06,1.9],[-1.8-.04,0,.06,1.9]].forEach(([z],i)=>box(.08,1.92,.07,0x3a2216,-3.96,2.5,1+(i?-2.93:2.93)));
   box(.08,.07,5.9,0x3a2216,-3.96,3.43,1);box(.08,.07,5.9,0x3a2216,-3.96,1.57,1);
@@ -1264,10 +1324,12 @@ function tick(){
       else{g.position.x+=dx/d*st;g.position.z+=dz/d*st;g.rotation.y=Math.atan2(dx,dz)}
       if(!h.wp.length){
         if(h.state==='out'){scene.remove(g);delete helpers[id];doorT=Math.max(doorT,.8);continue}
-        h.state='idle';g.rotation.y=Math.PI;walking=false;
+        h.state='idle';walking=false;h.sitNow=h.mode==='sit'&&h.seat!=null;g.rotation.y=h.sitNow?SEATS[h.seat].ry:h.mode==='spot'?Math.PI:h.face;
       }
     }
+    if(h.state==='idle'&&!h.wp.length){const sl=Math.floor((Date.now()+h.off)/11000);if(sl!==h.slot){h.slot=sl;pickAct(h)}}
     if(Math.hypot(g.position.x-DOOR_X,g.position.z-DOOR_Z)<3.2)doorT=Math.max(doorT,.5);
+    h.rig.rotation.x=0;h.rig.rotation.z=0;if(h.tb)h.tb.visible=!(h.sitNow||h.mode==='sing');h.mic.visible=h.mode==='sing'&&h.state!=='out';
     const s=walking?Math.sin(t*10)*.7:0;
     
     // 타격 애니메이션 처리 (도우미도 유저처럼 흔들리게)
@@ -1284,6 +1346,14 @@ function tick(){
 
     h.legL.rotation.x=s;h.legR.rotation.x=-s;
     if(walking){h.armL.rotation.set(-s*.8,0,h.gender==='f'?-.25:0);h.armR.rotation.set(aRx,0,aRz);g.position.y=y}
+    else if(h.sitNow){const S=SEATS[h.seat];g.position.set(S.x,S.y-.5+y,S.z);g.rotation.y=S.ry+Math.sin(t*.8+h.ph)*.14;
+      h.legL.rotation.x=h.legR.rotation.x=-1.5;h.armL.rotation.set(-.5,0,-.15);h.armR.rotation.set(-.5+Math.sin(t*1.3+h.ph)*.2,0,.15);h.rig.rotation.x=.03+Math.sin(t*.9+h.ph)*.04}
+    else if(h.mode==='sing'){const S2=h.gender==='f'?[-2.62,-.58]:[-2.51,-.8];
+      g.position.y=y+Math.abs(Math.sin(t*3+h.ph))*.03;g.rotation.y=h.face+Math.sin(t*1.2+h.ph)*.25;
+      h.armL.rotation.set(-.3+Math.sin(t*2+h.ph)*.3,0,-.7-Math.abs(Math.sin(t*2))*.2);h.armR.rotation.set(S2[0],0,S2[1]);h.rig.rotation.x=Math.sin(t*4+h.ph)*.05}
+    else if(h.mode==='dance'){const k=Math.sin(t*8+h.ph);
+      g.position.y=y+Math.abs(k)*.1;g.rotation.y=h.face+Math.sin(t*3+h.ph)*.5;
+      h.armL.rotation.set(0,0,-2.3-k*.4);h.armR.rotation.set(0,0,2.3+k*.4);h.rig.rotation.z=Math.sin(t*4+h.ph)*.08;h.legL.rotation.x=k*.35;h.legR.rotation.x=-k*.35}
     else if(h.gender==='f'){
       g.position.y=y + Math.abs(Math.sin(t*6+h.ph))*.08;g.rotation.y=Math.PI+Math.sin(t*3+h.ph)*.35;
       h.armL.rotation.set(0,0,-.25);h.armR.rotation.set(0,0,aRx);h.tb.rotation.z=Math.sin(t*20)*.5;
