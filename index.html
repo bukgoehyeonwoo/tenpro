@@ -158,6 +158,13 @@ body.order-on #order{display:block}
 .oi button{background:#a8741a;color:#fff;border-radius:14px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer}
 .oi button:active{transform:scale(.95)}
 @media(pointer:coarse),(max-width:700px){#order{left:10px;transform:none;width:calc(100vw - 76px);bottom:10px;max-height:60vh}}
+html,body{position:fixed;width:100%;top:0;left:0}
+#ui{bottom:var(--kb,0px)!important}
+#fab{bottom:calc(10px + var(--kb,0px))!important}
+#joy{bottom:calc(24px + var(--kb,0px))!important}
+body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
+#top,#bill,#singer,#score,#toast{margin-top:var(--vt,0px)}
+@media(pointer:coarse),(max-width:700px){#order{bottom:calc(10px + var(--kb,0px))}}
 </style></head><body>
 
 <div id="join">
@@ -275,6 +282,7 @@ const MENU=[
 {id:'bm',cat:'soju',name:'맥주',p:12000,c:0x6b3a10,l:0xd32f2f,sh:'s'}];
 const spendMap={},tItems={};let roomTotal=0,billShown=0,billShownR=0,lastBill='',lastBillR='',rc=[];
 const won=n=>'₩'+Math.round(n).toLocaleString('ko-KR');
+const MOB=matchMedia('(pointer:coarse)').matches||innerWidth<700,BASE_FOV=MOB?2*Math.atan(Math.tan(65*Math.PI/360)/.8)*180/Math.PI:65;
 let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0,composer,fanHead,fanBlades;
 const tvTex=new THREE.TextureLoader().load('/assets/tv.jpg');
 
@@ -573,6 +581,7 @@ function send(){const v=$('msg').value.trim();if(v)socket.emit('chat',v);$('msg'
 let pend=0;
 $('msg').addEventListener('compositionend',()=>{if(pend){pend=0;setTimeout(send,0)}});
 $('send').onclick=send;
+$('msg').addEventListener('focus',()=>{scrollTo(0,0);setTimeout(()=>{scrollTo(0,0);fit()},300)});
 const keyOf=e=>({arrowup:'w',arrowleft:'a',arrowdown:'s',arrowright:'d'}[e.key.toLowerCase()]||e.key.toLowerCase());
 addEventListener('keydown',e=>{
   if(document.activeElement.tagName==='INPUT'){
@@ -865,6 +874,16 @@ function updateBills(dt,t){
   billMesh.instanceMatrix.needsUpdate=true;billDirty=false;
 }
 
+let lastFit='';
+function fit(){
+  const v=window.visualViewport,w=v?v.width:innerWidth,h=v?v.height:innerHeight,top=v?v.offsetTop:0,left=v?v.offsetLeft:0,kb=Math.max(0,innerHeight-h-top);
+  const k=[w,h,top,left,kb].map(Math.round).join();if(k===lastFit)return;lastFit=k;
+  const R=document.documentElement.style;R.setProperty('--kb',kb+'px');R.setProperty('--vt',top+'px');
+  if(!renderer)return;
+  const c=renderer.domElement;renderer.setSize(w,h,false);
+  c.style.position='fixed';c.style.left=left+'px';c.style.top=top+'px';c.style.width=w+'px';c.style.height=h+'px';
+  camera.aspect=w/h;camera.updateProjectionMatrix();if(composer)composer.setSize(w,h);
+}
 function build(){
   renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -872,13 +891,8 @@ function build(){
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.prepend(renderer.domElement);
   scene=new THREE.Scene();scene.background=new THREE.Color(0x0b0618);
-  camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,40);
-  addEventListener('resize',()=>{
-    camera.aspect=innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth,innerHeight);
-    if (composer) composer.setSize(innerWidth, innerHeight);
-  });
+  camera=new THREE.PerspectiveCamera(BASE_FOV,innerWidth/innerHeight,.1,40);
+  fit();addEventListener('resize',fit);if(window.visualViewport){visualViewport.addEventListener('resize',fit);visualViewport.addEventListener('scroll',fit)}
   scene.add(new THREE.AmbientLight(0x6a5aa0,.5),new THREE.HemisphereLight(0x7a6aff,0x1a0f10,.25));
   const A=m=>(scene.add(m),m),box=(...a)=>A(bx(...a)),RB=(...a)=>A(rbm(...a));
   const BS=THREE.BackSide;
@@ -1216,8 +1230,8 @@ function tick(){
     camera.position.lerp(tmpC,Math.min(1,dt*10));
     // 네발로 기어다닐 때 시선이 땅에 파묻히지 않도록 카메라 타겟 y값 유지
     camera.lookAt(p.x, L.dv >= 6 && L.seat == null ? 0.3 : 0.9, p.z); 
-    if(dvL>.2){camera.rotateZ(Math.sin(t*1.3)*dvL*.012);camera.fov=65+Math.sin(t*1.1)*dvL*.9;camera.updateProjectionMatrix()}
-    else if(camera.fov!==65){camera.fov=65;camera.updateProjectionMatrix()}}
+    if(dvL>.2){camera.rotateZ(Math.sin(t*1.3)*dvL*.012);camera.fov=BASE_FOV+Math.sin(t*1.1)*dvL*.9;camera.updateProjectionMatrix()}
+    else if(camera.fov!==BASE_FOV){camera.fov=BASE_FOV;camera.updateProjectionMatrix()}}
   const fl=dvL>=2?'blur('+((dvL-1.5)*.2).toFixed(2)+'px) saturate('+(1+dvL*.08).toFixed(2)+') hue-rotate('+(Math.sin(t*.7)*dvL*3).toFixed(1)+'deg)':'';
   if(fl!==lastFilter){renderer.domElement.style.filter=fl;lastFilter=fl}
   $('vig').style.opacity=dvL>=2?Math.min(1,dvL/8)*(.7+Math.sin(t*1.5)*.3):0;
