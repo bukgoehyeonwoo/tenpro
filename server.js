@@ -92,9 +92,8 @@ app.get('/yt/search', async (req, res) => {
         if (c.items && c.items[0]) ytChan = c.items[0].id;
       } catch (e) { /* 다음 요청에서 재시도 */ }
     }
-    // 기본: 유튜브 전체에서 노래방 MR 검색 (TJ 공식 영상은 퍼가기 차단된 게 많음) / tj=1: TJ 채널만
-    const mr = /노래방|MR|karaoke|반주/i.test(q) ? q : q + ' 노래방 MR';
-    const p = { part: 'snippet', type: 'video', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: 10, q: tj ? (ytChan ? q : 'TJ노래방 ' + q) : mr };
+    // 기본: 검색어 그대로 유튜브 전체 검색 (제한 없음) / tj=1: TJ 채널만
+    const p = { part: 'snippet', type: 'video', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: 10, q: tj ? (ytChan ? q : 'TJ노래방 ' + q) : q };
     if (tj && ytChan) p.channelId = ytChan;
     const d = await ytApi('search', p);
     const items = (d.items || []).filter((i) => i.id && i.id.videoId).map((i) => ({
