@@ -1016,9 +1016,12 @@ function build(){
 
   // ===== 벽 장식: 노래책 포스터 / 안내 포스터 / 창문 / 액자 =====
   plaque(4.4,2.0,songList,3.97,2.5,1.6,-Math.PI/2,2048);
-  plaque(1.2,.85,menu('오늘의 안주','골뱅이무침'),3.97,2.4,-2.0,-Math.PI/2);
   plaque(1.0,1.3,orangePoster,3.3,2.1,-5.47,0);
-  plaque(1.4,.85,menu('서비스 30분','소주 4,000원'),3.97,3.55,-1.0,-Math.PI/2);
+  // A3(297x420mm) 신곡 포스터 — 1유닛≈1m 기준 실제 크기, 소파 등받이 위 눈높이
+  {const pt=new THREE.TextureLoader().load('/assets/poster.jpg',t=>{t.anisotropy=renderer.capabilities.getMaxAnisotropy()});
+   const pm=new THREE.Mesh(new THREE.PlaneGeometry(.297,.42),new THREE.MeshStandardMaterial({map:pt,emissive:0xffffff,emissiveMap:pt,emissiveIntensity:.45,roughness:.85}));
+   pm.position.set(3.965,1.62,-2.0);pm.rotation.y=-Math.PI/2;A(pm);
+   box(.012,.44,.317,0x1a1a1a,3.972,1.62,-2.0)}
   plaque(5.8,1.8,(x,w,h)=>{artDraw('#2a0f5a','#0b3a6e')(x,w,h);x.fillStyle='rgba(0,0,0,.4)';x.fillRect(0,0,w,h)},-3.97,2.5,1,Math.PI/2,1024,0xaaaaaa);
   [[1.8+.04,0,.06,1.9],[-1.8-.04,0,.06,1.9]].forEach(([z],i)=>box(.08,1.92,.07,0x3a2216,-3.96,2.5,1+(i?-2.93:2.93)));
   box(.08,.07,5.9,0x3a2216,-3.96,3.43,1);box(.08,.07,5.9,0x3a2216,-3.96,1.57,1);
