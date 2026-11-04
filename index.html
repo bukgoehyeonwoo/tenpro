@@ -167,9 +167,10 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 @media(pointer:coarse),(max-width:700px){#order{bottom:calc(10px + var(--kb,0px))}}
 #vbox{position:fixed;top:calc(64px + var(--vt,0px));left:50%;transform:translateX(-50%);width:min(380px,56vw);aspect-ratio:16/9;display:none;z-index:7;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 6px 24px #0008}
 #vbox.on{display:block}
-#vbox.tv{left:0;top:0;width:640px;height:360px;aspect-ratio:auto;border-radius:0;box-shadow:none;pointer-events:none;transform-origin:0 0;z-index:2}#vbox.tv #vx{display:none}#vfr{width:100%;height:100%;border:0}
+#vbox.tv{left:0;top:0;width:640px;height:360px;aspect-ratio:auto;border-radius:0;box-shadow:none;pointer-events:none;transform-origin:0 0;z-index:0}#vbox.tv #vx{display:none}#vfr{width:100%;height:100%;border:0}
 #verr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:#000d;color:#fff;font-size:13px;line-height:1.7;z-index:1}#verr.on{display:flex}#verr a{color:#8ab4ff}
 #vx{z-index:3;position:absolute;top:4px;right:4px;z-index:2;border:0;border-radius:50%;width:28px;height:28px;background:#000a;color:#fff;font-size:14px}
+#fabVid{width:auto;border-radius:23px;padding:0 16px;font-size:13px;font-weight:700;color:#e8e4f4;white-space:nowrap}
 #vpick{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,90vw);padding:16px;display:none;z-index:9}
 #vpick.on{display:block}
 #vres{max-height:38vh;overflow:auto;margin-top:8px;font-size:13px}.vit{display:flex;gap:8px;align-items:center;width:100%;text-align:left;border:0;background:#0000000d;border-radius:8px;padding:6px;margin-bottom:4px;font-size:13px;color:inherit}.vit img{width:72px;border-radius:4px;flex:none}
@@ -183,7 +184,7 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
   <button id="go" class="clean-box">입 장 하 기</button>
   <div id="err"></div>
   <div style="font-size:13px; font-weight:500; text-align:center; color:#555; background:rgba(255,255,255,0.6); padding:10px 15px; border-radius:12px;">
-    PC: WASD 이동 · 마우스 시점 · 휠 줌 · Q 메뉴 · E 주문 · Enter 채팅<br>모바일: 조이스틱 이동 · 드래그 시점 · 우측 하단 메뉴 / 채팅 버튼
+    PC: WASD 이동 · 마우스 시점 · 휠 줌 · Q 메뉴 · E 주문 · V 영상 · Enter 채팅<br>모바일: 조이스틱 이동 · 드래그 시점 · 우측 하단 메뉴 / 채팅 버튼
   </div>
 </div>
 
@@ -192,7 +193,7 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 <div id="score" class="clean-box"><div id="scoreName"></div><div id="scoreNum"></div></div>
 <div id="toast"></div>
 <div id="vbox"><button id="vx">✕</button><div id="vfr"></div><div id="verr"><div>이 영상은 퍼가기가 막혀 있어요<br><a id="vlink" target="_blank" rel="noopener">유튜브에서 열기</a><br>다른 영상을 골라주세요</div></div></div>
-<div id="vpick" class="clean-box"><div style="font-weight:700;margin-bottom:8px">🎬 TJ노래방 영상 틀기</div>
+<div id="vpick" class="clean-box"><div style="font-weight:700;margin-bottom:8px">🎬 영상보기 · TJ노래방</div>
 <input id="vurl" placeholder="곡 제목 검색 (또는 유튜브 링크 붙여넣기)" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px;border-radius:10px;border:1px solid #bbb">
 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button id="vplay" class="abtn highlight">▶ 재생</button><button id="vfind" class="abtn">🔎 검색</button><button id="vstop" class="abtn">⏹ 끄기</button><button id="vclose" class="abtn">닫기</button></div>
 <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px"><input type="checkbox" id="vtj">TJ 공식 채널만 (퍼가기 막힌 영상이 많아요)</label><div id="vres"></div><div style="font-size:12px;opacity:.7;margin-top:8px;line-height:1.4">유튜브에서 곡 제목으로 노래방 MR을 검색해 눌러 재생해요. 모두의 화면에 같이 나와요.</div></div>
@@ -206,7 +207,6 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
     <div id="sub-actions">
       <div id="grp-basic" class="act-grp clean-box active">
         <button id="mic" class="abtn highlight">마이크</button>
-        <button id="vid" class="abtn" style="display:none">🎬 노래영상</button>
         <button id="sit" class="abtn highlight">앉기</button>
         <button id="clap" class="abtn">박수</button>
         <button id="tmb" class="abtn">탬버린</button>
@@ -247,6 +247,7 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
     <button id="send" class="abtn">전송</button>
   </div>
   <div id="fab">
+    <button class="fab" id="fabVid" title="영상보기 (V)">▶ 영상보기</button>
     <button class="fab" id="fabOrder" title="주문 (E)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l-1 7a3 3 0 0 1-6 0z"/><path d="M12 13v7M8 21h8"/></svg></button>
     <button class="fab" id="fabChat" title="채팅 (Enter)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg></button>
     <button class="fab" id="fabMenu" title="행동 메뉴 (Q)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M20 6h0M4 12h2M14 12h6M4 18h9M21 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></button>
@@ -297,7 +298,7 @@ const MENU=[
 const spendMap={},tItems={};let roomTotal=0,billShown=0,billShownR=0,lastBill='',lastBillR='',rc=[];
 const won=n=>'₩'+Math.round(n).toLocaleString('ko-KR');
 const MOB=matchMedia('(pointer:coarse)').matches||innerWidth<700,BASE_FOV=MOB?2*Math.atan(Math.tan(65*Math.PI/360)/.8)*180/Math.PI:65;
-let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0,composer,fanHead,fanBlades;
+let me,roomName,gender='m',players={},helpers={},micId=null,keys={},scene,camera,renderer,spot,ball,lights=[],clock,screenTimer,sendT=0,dirty=0,door,doorT=0,composer,tvPass,fanHead,fanBlades;
 const tvTex=new THREE.TextureLoader().load('/assets/tv.jpg');
 
 const SEATS=[];
@@ -329,7 +330,7 @@ function label(text,bg){
 let toastT,scoreT;
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2200)}
 function setMic(id){
-  micId=id;$('mic').textContent=id===me?'마이크 내려놓기':'마이크';$('vid').style.display=id===me?'':'none';if(id!==me)$('vpick').classList.remove('on');
+  micId=id;$('mic').textContent=id===me?'마이크 내려놓기':'마이크';
   const e=$('singer');
   if(id&&players[id]){$('singerTxt').textContent=players[id].name+' 열창중';e.classList.add('on')}else e.classList.remove('on');
 }
@@ -557,7 +558,7 @@ socket.on('drunk',m=>{const p=players[m.id];if(!p)return;p.drunk=m.level;if(m.id
 socket.on('mic',m=>setMic(m.id));
 function ytId(x){x=String(x||'').trim();const m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/)||x.match(/^([\w-]{11})$/);return m?m[1]:null}
 // 영상을 맵의 TV 화면 위치에 원근 맞춰 붙임 (TV가 시야 밖이면 위쪽 작은 창으로 자동 전환)
-const TVC=[[-1.6,3.35],[1.6,3.35],[1.6,1.55],[-1.6,1.55]].map(([x,y])=>new THREE.Vector3(x,y,-5.36)),_tq=new THREE.Vector3();let tvMode=null;
+const TVC=[[-1.62,3.37],[1.62,3.37],[1.62,1.53],[-1.62,1.53]].map(([x,y])=>new THREE.Vector3(x,y,-5.365)),_tq=new THREE.Vector3();let tvMode=null;
 function updateVideoTV(){
   const b=$('vbox');if(!b.classList.contains('on')||!renderer)return;
   camera.updateMatrixWorld();
@@ -575,7 +576,7 @@ function updateVideoTV(){
 let ytp=null,ytReady=false,ytPend=null,curVid=null;
 {const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';document.head.appendChild(t)}
 window.onYouTubeIframeAPIReady=()=>{ytReady=true;if(ytPend)showVideo(ytPend[0],ytPend[1])};
-function showVideo(id,el){const b=$('vbox');$('verr').classList.remove('on');
+function showVideo(id,el){const b=$('vbox');$('fabVid').classList.toggle('on',!!id);$('verr').classList.remove('on');
   if(!id){curVid=null;ytPend=null;b.classList.remove('on');if(ytp&&ytp.stopVideo)ytp.stopVideo();return}
   curVid=id;b.classList.add('on');
   if(!ytReady){ytPend=[id,el];return}
@@ -583,7 +584,7 @@ function showVideo(id,el){const b=$('vbox');$('verr').classList.remove('on');
   if(ytp&&ytp.loadVideoById)ytp.loadVideoById({videoId:id,startSeconds:st});
   else ytp=new YT.Player('vfr',{videoId:id,playerVars:{autoplay:1,playsinline:1,rel:0,start:st},events:{onReady:e=>e.target.playVideo(),onError:()=>{$('vlink').href='https://www.youtube.com/watch?v='+curVid;$('verr').classList.add('on');toast('퍼가기가 막힌 영상이에요 · 다른 영상을 골라주세요')}}})}
 socket.on('video',m=>showVideo(m.id,m.el));
-$('vid').onclick=()=>$('vpick').classList.toggle('on');$('vclose').onclick=()=>$('vpick').classList.remove('on');
+const togVid=()=>{const p=$('vpick');p.classList.toggle('on');if(p.classList.contains('on'))setTimeout(()=>$('vurl').focus(),30)};$('fabVid').onclick=togVid;$('vclose').onclick=()=>$('vpick').classList.remove('on');
 $('vplay').onclick=()=>{const id=ytId($('vurl').value);if(!id)return toast('유튜브 영상 링크를 붙여넣어 주세요');socket.emit('video',id);$('vpick').classList.remove('on')};
 $('vstop').onclick=()=>{socket.emit('video',null);$('vpick').classList.remove('on')};
 async function ytSearch(){const q=$('vurl').value.trim();if(!q)return;
@@ -679,9 +680,11 @@ addEventListener('keydown',e=>{
     return;
   }
   if(e.key==='Escape'&&B.classList.contains('order-on')){toggleOrder();return}
+  if(e.key==='Escape'&&$('vpick').classList.contains('on')){$('vpick').classList.remove('on');return}
   if(e.key==='Enter'&&me){openChat();e.preventDefault();return}
   if((e.key==='q'||e.key==='Q')&&me){toggleMenu();return}
   if((e.key==='e'||e.key==='E')&&me){toggleOrder();return}
+  if((e.key==='v'||e.key==='V')&&me){togVid();return}
   keys[keyOf(e)]=1;
 });
 addEventListener('keyup',e=>{delete keys[keyOf(e)]});
@@ -976,11 +979,11 @@ function fit(){
   const R=document.documentElement.style;R.setProperty('--kb',kb+'px');R.setProperty('--vt',top+'px');
   if(!renderer)return;
   const c=renderer.domElement;renderer.setSize(w,h,false);
-  c.style.position='fixed';c.style.left=left+'px';c.style.top=top+'px';c.style.width=w+'px';c.style.height=h+'px';
+  c.style.position='fixed';c.style.zIndex='1';c.style.left=left+'px';c.style.top=top+'px';c.style.width=w+'px';c.style.height=h+'px';
   camera.aspect=w/h;camera.updateProjectionMatrix();if(composer)composer.setSize(w,h);
 }
 function build(){
-  renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setSize(innerWidth,innerHeight);
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1168,11 +1171,18 @@ function build(){
   const renderScene = new THREE.RenderPass(scene, camera);
   const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.35, 0.82);
   composer = new THREE.EffectComposer(renderer);
+  // 장면 깊이를 보관 → 마지막 패스에서 "TV 화면이 실제로 보이는 픽셀"만 투명하게 뚫어 뒤의 영상이 비치게 함 (사람/가구가 앞을 지나가면 가려짐)
+  [composer.renderTarget1,composer.renderTarget2].forEach(rt=>{rt.depthTexture=new THREE.DepthTexture(rt.width,rt.height,THREE.UnsignedIntType)});
   composer.addPass(renderScene);
   composer.addPass(bloomPass);
+  tvPass=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},tDepth:{value:null},uInv:{value:new THREE.Matrix4()},uOn:{value:0}},
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'uniform sampler2D tDiffuse,tDepth;uniform mat4 uInv;uniform float uOn;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);float a=1.;if(uOn>.5){float d=texture2D(tDepth,vUv).x;vec4 w=uInv*vec4(vUv*2.-1.,d*2.-1.,1.);w/=w.w;if(abs(w.z+5.365)<.03&&abs(w.x)<1.6&&w.y>1.55&&w.y<3.35)a=0.;}gl_FragColor=vec4(c.rgb*a,a);}'});
+  tvPass.render=function(r,w,rb,dt,m){this.uniforms.tDepth.value=rb.depthTexture;THREE.ShaderPass.prototype.render.call(this,r,w,rb,dt,m)};
+  composer.addPass(tvPass);
 }
 
-let lastFilter='';
+const _im=new THREE.Matrix4();let lastFilter='';
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(clock.getDelta(),.1),t=clock.elapsedTime,L=players[me];
@@ -1410,6 +1420,7 @@ function tick(){
     u.m.material.opacity=Math.max(0,1-u.t/u.life);
     if(u.t>u.life){scene.remove(u.m);u.m.material.dispose();parts.splice(i,1)}}
   
+  if(tvPass){const on=tvMode===true&&$('vbox').classList.contains('on');tvPass.uniforms.uOn.value=on?1:0;if(on){camera.updateMatrixWorld();_im.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).invert();tvPass.uniforms.uInv.value.copy(_im)}}
   if(composer) composer.render();
   else renderer.render(scene,camera);
   updateVideoTV();
