@@ -9,28 +9,28 @@ const io = new Server(server);
 const MAX = 6;        
 const MAXD = 8;       
 const HSLOTS = 4;     
-const ACTS = ['clap', 'tmb', 'smoke', 'pour', 'drink', 'water', 'dance', 'hug', 'slap', 'burn', 'stop'];
+const ACTS = ['clap', 'tmb', 'smoke', 'pour', 'recv', 'cash', 'drink', 'water', 'dance', 'hug', 'slap', 'burn', 'stop'];
 const TARGETED = ['hug', 'slap', 'burn'];
 const rooms = {}; 
 
 const LINES = {
   f: [
     '오빠~ 오늘 왜 이렇게 멋있어요~?',
-    '자~ 한잔 받으세요 오빠~ 🥃',
-    '어머~ 노래 너무 잘하시네~ 👏',
+    '자~ 한잔 받으세요 오빠~',
+    '어머~ 노래 너무 잘하시네~',
     '{name}님~ 한 곡만 불러주세요~ 네에~?',
     '건배~! 원샷 가요 원샷~!',
     '오빠 안주도 좀 드세요~ 속 버려요~',
     '어머 목소리 좋으시다~ 가수 하셔야겠어요~',
     '술 떨어지면 말씀하세요~ 바로 따라드릴게요~',
-    '{name}님 오늘 완전 스타네~ ✨',
-    '오빠 얼굴 빨개졌어~ 귀여워~ 😘',
+    '{name}님 오늘 완전 스타네~',
+    '오빠 얼굴 빨개졌어~ 귀여워~',
     '우리 건배 한번 해요~ 짠~!',
     '오늘 기분 좋은 일 있으셨어요~?',
     '{name}님 옆에 앉아도 돼요~?',
-    '어머~ 오늘 분위기 완전 좋다~ 💕',
+    '어머~ 오늘 분위기 완전 좋다~',
     '사장님~ 오늘은 제가 서비스 많이 드릴게요~',
-    '노래 한 곡 더! 한 곡 더! 👏👏',
+    '노래 한 곡 더! 한 곡 더!',
   ],
   m: [
     '형님~ 한잔 받으십쇼!',
@@ -45,12 +45,13 @@ const LINES = {
     '{name} 형님~ 건배 한번 하시죠! 짠!',
     '캬~ 형님 목소리 죽이는데요!',
     '오늘 제가 확실하게 모시겠습니다 형님!',
-    '한 곡 더! 한 곡 더! 👏👏',
-    '사장님 오늘 완전 멋지십니다~ 😎',
+    '한 곡 더! 한 곡 더!',
+    '사장님 오늘 완전 멋지십니다~',
   ],
 };
 
 app.use('/fonts', express.static(path.join(__dirname, 'fonts')));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const num = (v, lim) => Math.max(-lim, Math.min(lim, Number(v) || 0));
@@ -64,7 +65,7 @@ io.on('connection', (s) => {
     r = String(r || '노래방').slice(0, 20);
     name = String(name || '익명').slice(0, 10);
     gender = gender === 'f' ? 'f' : 'm';
-    const R = rooms[r] || (rooms[r] = { players: {}, mic: null, helperAt: 0, helpers: [], hid: 0 });
+    const R = rooms[r] || (rooms[r] = { players: {}, mic: null, helperAt: 0, helpers: [], hid: 0, cash: [] });
     if (Object.keys(R.players).length >= MAX) return s.emit('full');
     const used = new Set(Object.values(R.players).map((p) => p.color));
     let color = 0;
@@ -77,7 +78,7 @@ io.on('connection', (s) => {
     R.players[s.id] = p;
     room = r;
     s.join(r);
-    s.emit('init', { id: s.id, players: Object.values(R.players), mic: R.mic, helpers: R.helpers });
+    s.emit('init', { id: s.id, players: Object.values(R.players), mic: R.mic, helpers: R.helpers, cash: R.cash });
     s.to(r).emit('join', p);
   });
 
@@ -119,6 +120,12 @@ io.on('connection', (s) => {
     }
     
     if (type === 'dance' && p.seat !== null) return;
+    if (type === 'cash') {
+      // 같은 seed로 모두에게 같은 모양으로 돈이 쌓이게 + 나중에 들어온 사람에게도 쌓인 돈을 보여줌
+      out.seed = (Math.random() * 4294967296) >>> 0;
+      R.cash.push({ seed: out.seed, x: p.x, z: p.z });
+      if (R.cash.length > 8) R.cash.shift();
+    }
     io.to(room).emit('emote', out);
     if (type === 'drink') {
       p.drunk = Math.min(MAXD, p.drunk + 1);
