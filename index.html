@@ -157,6 +157,7 @@ body.order-on #order{display:block}
 .oi b{display:block;font-size:14px;color:#f3ecff;font-weight:600}.oi span{font-size:12px;color:#ffd166;font-variant-numeric:tabular-nums}
 .oi button{background:#a8741a;color:#fff;border-radius:14px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer}
 .oi button:active{transform:scale(.95)}
+@media(pointer:coarse),(max-width:700px){#order{left:10px;transform:none;width:calc(100vw - 76px);bottom:10px;max-height:60vh}}
 </style></head><body>
 
 <div id="join">
@@ -557,9 +558,9 @@ $('sit').onclick=()=>{
 const B=document.body;
 function setCls(c,btn,on){B.classList.toggle(c,on);$(btn).classList.toggle('on',on)}
 const ordTabs={liq:'양주',food:'안주',soju:'소주·맥주'};let ordTab='liq';
-function renderOrder(){$('ordTabs').innerHTML=Object.keys(ordTabs).map(k=>'<button class="ot'+(k===ordTab?' on':'')+'" data-t="'+k+'">'+ordTabs[k]+'</button>').join('')+'<button class="ot clr" id="clr">치우기</button>';
+function renderOrder(){$('ordTabs').innerHTML=Object.keys(ordTabs).map(k=>'<button class="ot'+(k===ordTab?' on':'')+'" data-t="'+k+'">'+ordTabs[k]+'</button>').join('')+'<button class="ot clr" id="clr">치우기</button><button class="ot" id="ordX" style="padding:7px 12px">✕</button>';
  $('ordList').innerHTML=MENU.filter(m=>m.cat===ordTab).map(m=>'<div class="oi"><div><b>'+m.name+'</b><span>'+won(m.p)+'</span></div><button data-o="'+m.id+'">주문</button></div>').join('')}
-$('order').onclick=e=>{const t=e.target;if(t.dataset.t){ordTab=t.dataset.t;renderOrder()}else if(t.dataset.o)socket.emit('order',t.dataset.o);else if(t.id==='clr')socket.emit('clearTable')};
+$('order').onclick=e=>{const t=e.target;if(t.dataset.t){ordTab=t.dataset.t;renderOrder()}else if(t.dataset.o)socket.emit('order',t.dataset.o);else if(t.id==='clr')socket.emit('clearTable');else if(t.id==='ordX')toggleOrder()};
 renderOrder();
 function toggleOrder(){setCls('order-on','fabOrder',!B.classList.contains('order-on'))}
 $('fabOrder').onclick=toggleOrder;
@@ -580,6 +581,7 @@ addEventListener('keydown',e=>{
     if(e.key==='Enter'){if(e.target.id==='msg')send();else if(!me)$('go').click()}
     return;
   }
+  if(e.key==='Escape'&&B.classList.contains('order-on')){toggleOrder();return}
   if(e.key==='Enter'&&me){openChat();e.preventDefault();return}
   if((e.key==='q'||e.key==='Q')&&me){toggleMenu();return}
   if((e.key==='e'||e.key==='E')&&me){toggleOrder();return}
