@@ -166,7 +166,8 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 #top,#bill,#singer,#score,#toast{margin-top:var(--vt,0px)}
 @media(pointer:coarse),(max-width:700px){#order{bottom:calc(10px + var(--kb,0px))}}
 #vbox{position:fixed;top:calc(64px + var(--vt,0px));left:50%;transform:translateX(-50%);width:min(380px,56vw);aspect-ratio:16/9;display:none;z-index:7;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 6px 24px #0008}
-#vbox.on{display:block}#vfr{width:100%;height:100%;border:0}
+#vbox.on{display:block}
+#vbox.tv{left:0;top:0;width:640px;height:360px;aspect-ratio:auto;border-radius:0;box-shadow:none;pointer-events:none;transform-origin:0 0;z-index:2}#vbox.tv #vx{display:none}#vfr{width:100%;height:100%;border:0}
 #verr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:#000d;color:#fff;font-size:13px;line-height:1.7;z-index:1}#verr.on{display:flex}#verr a{color:#8ab4ff}
 #vx{z-index:3;position:absolute;top:4px;right:4px;z-index:2;border:0;border-radius:50%;width:28px;height:28px;background:#000a;color:#fff;font-size:14px}
 #vpick{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,90vw);padding:16px;display:none;z-index:9}
@@ -313,15 +314,17 @@ socket.on('full',()=>$('err').textContent='방이 꽉 찼어요! (최대 6명)')
 socket.on('notice',t=>toast(t));
 
 function label(text,bg){
-  const c=document.createElement('canvas');c.width=512;c.height=96;
-  const x=c.getContext('2d');x.font='600 40px '+FONT;
-  const t=text.length>22?text.slice(0,22)+'…':text;
-  if(bg){const w=Math.min(500,x.measureText(t).width+40);x.fillStyle=bg;x.beginPath();x.roundRect((512-w)/2,10,w,76,24);x.fill()}
+  const bub=bg==='#000a',H=bub?160:96,c=document.createElement('canvas');c.width=512;c.height=H;
+  const x=c.getContext('2d'),maxW=bub?430:470;let fs=bub?26:30;x.font='600 '+fs+'px '+FONT;
+  let L=[String(text)];
+  if(bub){L=[];let cur='';for(const ch of String(text)){if(cur&&x.measureText(cur+ch).width>maxW){L.push(cur);cur=ch}else cur+=ch}L.push(cur);if(L.length>3){L=L.slice(0,3);L[2]=L[2].slice(0,-1)+'…'}}
+  else while(x.measureText(L[0]).width>maxW&&fs>16){fs-=2;x.font='600 '+fs+'px '+FONT}
+  const lh=fs+8,bh=L.length*lh+16,y0=(H-bh)/2;
+  if(bg){const w=Math.min(500,Math.max(...L.map(t=>x.measureText(t).width))+36);x.fillStyle=bg;x.beginPath();x.roundRect((512-w)/2,y0,w,bh,20);x.fill()}
   x.textAlign='center';x.textBaseline='middle';
-  if(!bg){x.lineWidth=7;x.strokeStyle='#000';x.strokeText(t,256,48)}
-  x.fillStyle='#fff';x.fillText(t,256,48);
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
-  s.scale.set(3.2,.6,1);return s;
+  L.forEach((t,i)=>{const ty=y0+8+lh*i+lh/2;if(!bg){x.lineWidth=6;x.strokeStyle='#000';x.strokeText(t,256,ty)}x.fillStyle='#fff';x.fillText(t,256,ty)});
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
+  sp.scale.set(3.2,H/160,1);return sp;
 }
 let toastT,scoreT;
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2200)}
@@ -553,6 +556,22 @@ socket.on('sitfail',()=>{const L=players[me];if(L&&L.seat!=null){standUp(L,true)
 socket.on('drunk',m=>{const p=players[m.id];if(!p)return;p.drunk=m.level;if(m.id===me)updateTop()});
 socket.on('mic',m=>setMic(m.id));
 function ytId(x){x=String(x||'').trim();const m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/)||x.match(/^([\w-]{11})$/);return m?m[1]:null}
+// 영상을 맵의 TV 화면 위치에 원근 맞춰 붙임 (TV가 시야 밖이면 위쪽 작은 창으로 자동 전환)
+const TVC=[[-1.6,3.35],[1.6,3.35],[1.6,1.55],[-1.6,1.55]].map(([x,y])=>new THREE.Vector3(x,y,-5.36)),_tq=new THREE.Vector3();let tvMode=null;
+function updateVideoTV(){
+  const b=$('vbox');if(!b.classList.contains('on')||!renderer)return;
+  camera.updateMatrixWorld();
+  const c=renderer.domElement,W=parseFloat(c.style.width)||innerWidth,H=parseFloat(c.style.height)||innerHeight,L=parseFloat(c.style.left)||0,T=parseFloat(c.style.top)||0,P=[];let ok=true;
+  for(const v of TVC){_tq.copy(v).applyMatrix4(camera.matrixWorldInverse);if(_tq.z>-.3){ok=false;break}_tq.copy(v).project(camera);P.push([L+(_tq.x*.5+.5)*W,T+(-_tq.y*.5+.5)*H])}
+  if(ok&&Math.hypot(P[1][0]-P[0][0],P[1][1]-P[0][1])<70)ok=false;
+  if(!ok){if(tvMode!==false){b.classList.remove('tv');b.style.transform='';tvMode=false}return}
+  if(tvMode!==true){b.classList.add('tv');tvMode=true}
+  const [x0,y0]=P[0],[x1,y1]=P[1],[x2,y2]=P[2],[x3,y3]=P[3],sx=x0-x1+x2-x3,sy=y0-y1+y2-y3;let ga=0,ha=0,a,bq,d,e;
+  if(Math.abs(sx)<1e-6&&Math.abs(sy)<1e-6){a=x1-x0;bq=x3-x0;d=y1-y0;e=y3-y0}
+  else{const dx1=x1-x2,dx2=x3-x2,dy1=y1-y2,dy2=y3-y2,del=dx1*dy2-dx2*dy1;ga=(sx*dy2-dx2*sy)/del;ha=(dx1*sy-sx*dy1)/del;a=x1-x0+ga*x1;bq=x3-x0+ha*x3;d=y1-y0+ga*y1;e=y3-y0+ha*y3}
+  const w=640,hh=360,f=n=>n.toFixed(9);
+  b.style.transform='matrix3d('+[f(a/w),f(d/w),0,f(ga/w),f(bq/hh),f(e/hh),0,f(ha/hh),0,0,1,0,f(x0),f(y0),0,1].join(',')+')';
+}
 let ytp=null,ytReady=false,ytPend=null,curVid=null;
 {const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';document.head.appendChild(t)}
 window.onYouTubeIframeAPIReady=()=>{ytReady=true;if(ytPend)showVideo(ytPend[0],ytPend[1])};
@@ -714,8 +733,15 @@ function impact(a,type){
 }
 const DOT=[0xff1744,0x00e5ff,0x76ff03,0xffea00,0xd500f9,0xff9100];
 // 5. 책상 위 올라가기 허용: BOXES(충돌체크 구역)에서 책상 좌표(마지막 배열) 삭제
-const BOXES=[[-4,-2.7,-2.8,5.5],[2.7,4,-2.8,5.5],[-2.7,2.7,4.5,5.5]];
-const blocked=(x,z)=>BOXES.some(b=>x>b[0]-.3&&x<b[1]+.3&&z>b[2]-.3&&z<b[3]+.3)||(x>-1.45&&x<1.45&&z<-4.85);
+const BOXES=[[3.52,4,-2.8,5.5],[-4,-3.52,-2.8,5.5],[-2.7,2.7,5.08,5.5]]; // 소파 등받이만 막음 (좌석·의자·테이블은 올라갈 수 있음)
+const blocked=(x,z)=>BOXES.some(b=>x>b[0]&&x<b[1]&&z>b[2]&&z<b[3])||(x>-1.45&&x<1.45&&z<-4.85);
+function floorY(x,z){
+  if(x>-.85&&x<.85&&z>-1.4&&z<2.8)return .64;
+  const ax=Math.abs(x);
+  if(ax>2.72&&ax<3.68&&z>-2.8&&z<5.5)return .5;
+  if(ax<2.68&&z>4.52&&z<5.5)return .5;
+  for(let i=0;i<4;i++){const q=SEATS[i];if(Math.abs(x-q.x)<.25&&Math.abs(z-q.z)<.25)return .47}
+  return 0}
 
 function plaque(w,h,draw,x,y,z,ry,res,tint){
   const c=document.createElement('canvas');c.width=res||512;c.height=Math.round(c.width*h/w);draw(c.getContext('2d'),c.width,c.height);
@@ -1210,10 +1236,9 @@ function tick(){
     p.cig.visible=a==='smoke';p.glass.visible=a==='drink'||a==='recv';p.wglass.visible=a==='water';
     p.bottle.visible=p.glassL.visible=a==='pour';p.bcig.visible=a==='burn';
     
-    // 책상 위로 올라가는 로직 적용 (테이블 좌표 X: -0.85 ~ 0.85, Z: -1.4 ~ 2.8)
-    const onTable = g.position.x > -0.85 && g.position.x < 0.85 && g.position.z > -1.4 && g.position.z < 2.8;
-    let y=sit?SEATS[p.seat].y-.5:0;
-    if(onTable && !sit) y += 0.64; 
+    // 테이블·소파·의자 위로 올라가기 (부드럽게 단차 이동)
+    const tgtY=sit?0:floorY(g.position.x,g.position.z);p.fy=(p.fy||0)+(tgtY-(p.fy||0))*Math.min(1,dt*14);
+    let y=sit?SEATS[p.seat].y-.5:p.fy;
     
     let sw=Math.sin(t*1.7+p.ph)*p.dv*.014;
     let lL=sit?-1.5:s,lR=sit?-1.5:-s;
@@ -1387,5 +1412,6 @@ function tick(){
   
   if(composer) composer.render();
   else renderer.render(scene,camera);
+  updateVideoTV();
 }
 </script></body></html>
