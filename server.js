@@ -82,24 +82,27 @@ app.get('/yt/search', async (req, res) => {
   const now = Date.now(), ip = req.ip;
   if (now - (ytLast.get(ip) || 0) < 1000) return res.status(429).json({ error: 'slow' });
   ytLast.set(ip, now);
-  const hit = ytCache.get(q);
+  const tj = req.query.tj === '1', ck = (tj ? 'tj:' : 'all:') + q;
+  const hit = ytCache.get(ck);
   if (hit && now - hit.t < 600000) return res.json({ items: hit.items });   // 10분 캐시 (쿼터 절약)
   try {
-    if (ytChan === null) {
+    if (tj && ytChan === null) {
       try {
         const c = await ytApi('channels', { part: 'id', forHandle: '@TJ노래방TJKaraoke' });
         if (c.items && c.items[0]) ytChan = c.items[0].id;
       } catch (e) { /* 다음 요청에서 재시도 */ }
     }
-    const p = { part: 'snippet', type: 'video', videoEmbeddable: 'true', maxResults: 10, q: ytChan ? q : 'TJ노래방 ' + q };
-    if (ytChan) p.channelId = ytChan;
+    // 기본: 유튜브 전체에서 노래방 MR 검색 (TJ 공식 영상은 퍼가기 차단된 게 많음) / tj=1: TJ 채널만
+    const mr = /노래방|MR|karaoke|반주/i.test(q) ? q : q + ' 노래방 MR';
+    const p = { part: 'snippet', type: 'video', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: 10, q: tj ? (ytChan ? q : 'TJ노래방 ' + q) : mr };
+    if (tj && ytChan) p.channelId = ytChan;
     const d = await ytApi('search', p);
     const items = (d.items || []).filter((i) => i.id && i.id.videoId).map((i) => ({
       id: i.id.videoId, title: unesc(i.snippet.title),
       thumb: (i.snippet.thumbnails.default || {}).url || '',
     }));
     if (ytCache.size > 200) ytCache.clear();
-    ytCache.set(q, { t: now, items });
+    ytCache.set(ck, { t: now, items });
     res.json({ items });
   } catch (e) {
     console.log('YouTube 검색 실패:', e.message);

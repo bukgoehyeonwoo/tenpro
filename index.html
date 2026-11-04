@@ -167,7 +167,8 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 @media(pointer:coarse),(max-width:700px){#order{bottom:calc(10px + var(--kb,0px))}}
 #vbox{position:fixed;top:calc(64px + var(--vt,0px));left:50%;transform:translateX(-50%);width:min(380px,56vw);aspect-ratio:16/9;display:none;z-index:7;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 6px 24px #0008}
 #vbox.on{display:block}#vfr{width:100%;height:100%;border:0}
-#vx{position:absolute;top:4px;right:4px;z-index:2;border:0;border-radius:50%;width:28px;height:28px;background:#000a;color:#fff;font-size:14px}
+#verr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:#000d;color:#fff;font-size:13px;line-height:1.7;z-index:1}#verr.on{display:flex}#verr a{color:#8ab4ff}
+#vx{z-index:3;position:absolute;top:4px;right:4px;z-index:2;border:0;border-radius:50%;width:28px;height:28px;background:#000a;color:#fff;font-size:14px}
 #vpick{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,90vw);padding:16px;display:none;z-index:9}
 #vpick.on{display:block}
 #vres{max-height:38vh;overflow:auto;margin-top:8px;font-size:13px}.vit{display:flex;gap:8px;align-items:center;width:100%;text-align:left;border:0;background:#0000000d;border-radius:8px;padding:6px;margin-bottom:4px;font-size:13px;color:inherit}.vit img{width:72px;border-radius:4px;flex:none}
@@ -189,11 +190,11 @@ body.menu-on #joy{bottom:calc(150px + var(--kb,0px))!important}
 <div id="singer" class="clean-box"><span class="eq"><i></i><i></i><i></i><i></i></span><span id="singerTxt"></span></div>
 <div id="score" class="clean-box"><div id="scoreName"></div><div id="scoreNum"></div></div>
 <div id="toast"></div>
-<div id="vbox"><button id="vx">✕</button><iframe id="vfr" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+<div id="vbox"><button id="vx">✕</button><div id="vfr"></div><div id="verr"><div>이 영상은 퍼가기가 막혀 있어요<br><a id="vlink" target="_blank" rel="noopener">유튜브에서 열기</a><br>다른 영상을 골라주세요</div></div></div>
 <div id="vpick" class="clean-box"><div style="font-weight:700;margin-bottom:8px">🎬 TJ노래방 영상 틀기</div>
 <input id="vurl" placeholder="곡 제목 검색 (또는 유튜브 링크 붙여넣기)" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px;border-radius:10px;border:1px solid #bbb">
 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button id="vplay" class="abtn highlight">▶ 재생</button><button id="vfind" class="abtn">🔎 검색</button><button id="vstop" class="abtn">⏹ 끄기</button><button id="vclose" class="abtn">닫기</button></div>
-<div id="vres"></div><div style="font-size:12px;opacity:.7;margin-top:8px;line-height:1.4">TJ노래방 채널에서 곡 제목으로 검색해 눌러 재생해요. 모두의 화면에 같이 나와요.</div></div>
+<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px"><input type="checkbox" id="vtj">TJ 공식 채널만 (퍼가기 막힌 영상이 많아요)</label><div id="vres"></div><div style="font-size:12px;opacity:.7;margin-top:8px;line-height:1.4">유튜브에서 곡 제목으로 노래방 MR을 검색해 눌러 재생해요. 모두의 화면에 같이 나와요.</div></div>
 <div id="bill" class="clean-box"><div class="bl">유흥비</div><div id="billMe">₩0</div><div id="billRoom">룸 합계 ₩0</div><div id="rcpt"></div></div>
 <div id="vig"></div><div id="flash"></div>
 <div id="joy"><div id="knob"></div></div>
@@ -552,8 +553,16 @@ socket.on('sitfail',()=>{const L=players[me];if(L&&L.seat!=null){standUp(L,true)
 socket.on('drunk',m=>{const p=players[m.id];if(!p)return;p.drunk=m.level;if(m.id===me)updateTop()});
 socket.on('mic',m=>setMic(m.id));
 function ytId(x){x=String(x||'').trim();const m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/)||x.match(/^([\w-]{11})$/);return m?m[1]:null}
-function showVideo(id,el){const b=$('vbox');if(!id){b.classList.remove('on');$('vfr').src='about:blank';return}
-  $('vfr').src='https://www.youtube.com/embed/'+id+'?autoplay=1&playsinline=1&rel=0&start='+Math.floor((el||0)/1000);b.classList.add('on')}
+let ytp=null,ytReady=false,ytPend=null,curVid=null;
+{const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';document.head.appendChild(t)}
+window.onYouTubeIframeAPIReady=()=>{ytReady=true;if(ytPend)showVideo(ytPend[0],ytPend[1])};
+function showVideo(id,el){const b=$('vbox');$('verr').classList.remove('on');
+  if(!id){curVid=null;ytPend=null;b.classList.remove('on');if(ytp&&ytp.stopVideo)ytp.stopVideo();return}
+  curVid=id;b.classList.add('on');
+  if(!ytReady){ytPend=[id,el];return}
+  const st=Math.floor((el||0)/1000);
+  if(ytp&&ytp.loadVideoById)ytp.loadVideoById({videoId:id,startSeconds:st});
+  else ytp=new YT.Player('vfr',{videoId:id,playerVars:{autoplay:1,playsinline:1,rel:0,start:st},events:{onReady:e=>e.target.playVideo(),onError:()=>{$('vlink').href='https://www.youtube.com/watch?v='+curVid;$('verr').classList.add('on');toast('퍼가기가 막힌 영상이에요 · 다른 영상을 골라주세요')}}})}
 socket.on('video',m=>showVideo(m.id,m.el));
 $('vid').onclick=()=>$('vpick').classList.toggle('on');$('vclose').onclick=()=>$('vpick').classList.remove('on');
 $('vplay').onclick=()=>{const id=ytId($('vurl').value);if(!id)return toast('유튜브 영상 링크를 붙여넣어 주세요');socket.emit('video',id);$('vpick').classList.remove('on')};
@@ -561,7 +570,7 @@ $('vstop').onclick=()=>{socket.emit('video',null);$('vpick').classList.remove('o
 async function ytSearch(){const q=$('vurl').value.trim();if(!q)return;
   if(/youtu/.test(q)&&ytId(q)){$('vplay').click();return}
   const box=$('vres');box.textContent='검색중...';
-  try{const r=await fetch('/yt/search?q='+encodeURIComponent(q));
+  try{const r=await fetch('/yt/search?q='+encodeURIComponent(q)+($('vtj').checked?'&tj=1':''));
     if(r.status===503){box.textContent='';open('https://www.youtube.com/@TJ%EB%85%B8%EB%9E%98%EB%B0%A9TJKaraoke/search?query='+encodeURIComponent(q),'_blank');toast('서버에 YT_KEY가 없어서 유튜브 검색창을 열었어요. 링크를 복사해 붙여넣어 주세요');return}
     if(!r.ok)throw 0;const d=await r.json();box.textContent='';
     if(!d.items.length){box.textContent='검색 결과가 없어요';return}
